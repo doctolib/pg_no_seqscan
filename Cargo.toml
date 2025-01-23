@@ -1,0 +1,32 @@
+[package]
+name = "pg_no_seqscan"
+version = "0.0.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[[bin]]
+name = "pgrx_embed_pg_no_seqscan"
+path = "./src/bin/pgrx_embed.rs"
+
+[features]
+default = ["pg15"]
+pg15 = ["pgrx/pg15", "pgrx-tests/pg15" ]
+pg_test = []
+
+[dependencies]
+pgrx = "=0.12.9"
+regex = "1.11.1"
+
+[dev-dependencies]
+pgrx-tests = "=0.12.9"
+
+[profile.dev]
+panic = "unwind"
+
+[profile.release]
+panic = "unwind"
+opt-level = 3
+lto = "fat"
+codegen-units = 1
