@@ -9,15 +9,42 @@ pub extern "C" fn _PG_init() {
     unsafe { hooks::init_hooks() };
 }
 
-
 #[cfg(any(test, feature = "pg_test"))]
+#[allow(static_mut_refs)]
 #[pg_schema]
 mod tests {
     use pgrx::prelude::*;
+    use std::collections::HashSet;
+    use crate::hooks::HOOK_OPTION;
+
 
     #[pg_test]
-    fn e2e_test() {
-        Spi::run("CREATE TABLE relation_test(name TEXT);").unwrap();
+    fn detects_seqscan_on_select() {
+        Spi::run("
+        create table foo as (select * from generate_series(1,10));
+        select * from foo;
+        ").unwrap();
+        unsafe {
+            assert_eq!(HOOK_OPTION.as_mut().unwrap().tables_in_seqscans, HashSet::from_iter(vec!["foo".to_string()]));
+        }   
+    }
+
+    #[pg_test]
+    fn detects_seqscan_on_multiple_selects() {
+        Spi::run("
+        create table foo as (select * from generate_series(1,10));
+        select * from foo;
+        ").unwrap();
+        unsafe {
+            assert_eq!(HOOK_OPTION.as_mut().unwrap().tables_in_seqscans, HashSet::from_iter(vec!["foo".to_string()]));
+        }   
+        Spi::run("
+        create table bar as (select * from generate_series(1,10));
+        select * from bar;
+        ").unwrap();
+        unsafe {
+            assert_eq!(HOOK_OPTION.as_mut().unwrap().tables_in_seqscans, HashSet::from_iter(vec!["bar".to_string()]));
+        }   
     }
 
 }
