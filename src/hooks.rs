@@ -1,46 +1,93 @@
-use std::collections::HashSet;
-use pgrx::notice;
-use pgrx::pg_sys::CmdType;
-use pgrx::pg_sys::{get_rel_name, rt_fetch, List, NodeTag, NodeTag::T_SeqScan, Plan, SeqScan};
+use crate::guc;
+use pgrx::pg_sys::{CmdType, List, NodeTag::T_SeqScan, Plan, QueryDesc, SeqScan};
+use pgrx::{error, notice, PgBox};
 #[allow(deprecated)]
-use pgrx::{pg_sys, register_hook, HookResult, PgBox, PgHooks};
+use pgrx::{register_hook, HookResult, PgHooks};
+
+use crate::guc::{DetectionLevelEnum, PG_NO_SEQSCAN_LEVEL};
+use crate::helpers::{resolve_namespace_name, resolve_table_name, scanned_table};
 use std::ffi::CStr;
 
 pub struct NoSeqscanHooks {
-    pub tables_in_seqscans: HashSet<String>,
-}
-
-unsafe fn resolve_table_name(rtables: *mut List, scanrelid: u32) -> String {
-    let relname = get_rel_name(rt_fetch(scanrelid, rtables).as_ref().unwrap().relid);
-    let c_str: &CStr = unsafe { CStr::from_ptr(relname) };
-    c_str.to_str().unwrap().to_string()
+    pub tables_in_seqscans: Vec<String>,
 }
 
 impl NoSeqscanHooks {
+    fn check_query(&mut self, query_desc: &PgBox<QueryDesc>) {
+        // See PlannedStmt documentation: https://github.com/postgres/postgres/blob/master/src/include/nodes/plannodes.h#L46
+        let query_string = unsafe { CStr::from_ptr(query_desc.sourceText) }
+            .to_str()
+            .unwrap()
+            .to_string()
+            .to_lowercase();
 
-    fn report_seqscan(&mut self, node_tag: NodeTag, table_name: String, query_string: &String) {
-        notice!(
-            "{:?} on table: '{}' - query: '{}'",
-            node_tag,
-            table_name,
-            query_string
-        );
-        self.tables_in_seqscans.insert(table_name);
+        let query_first_word = query_string.split_whitespace().next().unwrap_or("");
+        if query_first_word == "explain" {
+            return;
+        }
+
+        let plannedstmt_ref = unsafe { query_desc.plannedstmt.as_ref() };
+        if plannedstmt_ref.is_none() {
+            return;
+        }
+
+        let ps = plannedstmt_ref.unwrap();
+        self.check_plan_recursively(ps.planTree, ps.rtable);
+
+        if !self.tables_in_seqscans.is_empty() {
+            let message = format!(
+                "A 'Sequential Scan' on {} has been detected.
+  - Run an EXPLAIN on your query to check the query plan.
+  - Make sure the query is compatible with the existing indexes.
+
+Query: {}
+",
+                self.tables_in_seqscans.join(","),
+                query_string
+            );
+            match PG_NO_SEQSCAN_LEVEL.get() {
+                DetectionLevelEnum::Warn => notice!("{message}"),
+                DetectionLevelEnum::Error => error!("{message}"),
+                DetectionLevelEnum::Off => unreachable!(),
+            }
+        }
     }
 
-    fn notice_on_seq_scans(&mut self, plan: *mut Plan, rtables: *mut List, query_string: &String) {
+    fn check_plan_recursively(&mut self, plan: *mut Plan, rtables: *mut List) {
         unsafe {
-            plan.as_ref().map(|plan_ref| {
-                if plan_ref.type_ == T_SeqScan {
-                    let seq_scan: &mut SeqScan = &mut *(plan as *mut SeqScan);
-                    self.report_seqscan(plan_ref.type_, resolve_table_name(rtables, seq_scan.scan.scanrelid) , query_string);
-                } else {
-                    // See Plan documentation: https://github.com/postgres/postgres/blob/master/src/include/nodes/plannodes.h#L119
-                    self.notice_on_seq_scans(plan_ref.lefttree, rtables, &query_string);
-                    self.notice_on_seq_scans(plan_ref.righttree, rtables, &query_string);
-                }
-            });
+            if let Some(node) = plan.as_ref() {
+                self.check_current_node(plan, rtables);
+
+                self.check_plan_recursively(node.lefttree, rtables);
+                self.check_plan_recursively(node.righttree, rtables);
+            }
         }
+    }
+
+    unsafe fn check_current_node(&mut self, node: *mut Plan, rtables: *mut List) {
+        if node.as_ref().map(|plan_ref| plan_ref.type_).unwrap() != T_SeqScan {
+            return;
+        }
+
+        let seq_scan: &mut SeqScan = &mut *(node as *mut SeqScan);
+        let table_oid = scanned_table(seq_scan.scan.scanrelid, rtables).unwrap();
+        let schema = resolve_namespace_name(table_oid).unwrap();
+
+        let ignored_schemas = guc::PG_NO_SEQSCAN_IGNORED_SCHEMAS
+            .get()
+            .unwrap()
+            .to_str()
+            .expect("Ignored schema should be valid");
+        if ignored_schemas
+            .split(',')
+            .any(|ignored_schema| schema == ignored_schema)
+        {
+            return;
+        }
+
+        let table_name = resolve_table_name(table_oid);
+        let table_name = table_name.unwrap();
+        self.tables_in_seqscans.push(table_name.clone());
     }
 }
 
@@ -48,38 +95,35 @@ impl NoSeqscanHooks {
 impl PgHooks for NoSeqscanHooks {
     fn executor_start(
         &mut self,
-        query_desc: PgBox<pg_sys::QueryDesc>,
+        query_desc: PgBox<QueryDesc>,
         eflags: i32,
-        prev_hook: fn(query_desc: PgBox<pg_sys::QueryDesc>, eflags: i32) -> HookResult<()>,
+        prev_hook: fn(query_desc: PgBox<QueryDesc>, eflags: i32) -> HookResult<()>,
     ) -> HookResult<()> {
-        // See PlannedStmt documentation: https://github.com/postgres/postgres/blob/master/src/include/nodes/plannodes.h#L46
-        unsafe { HOOK_OPTION = Some(NoSeqscanHooks { tables_in_seqscans: HashSet::new() }) };
-        let query_string = unsafe { CStr::from_ptr(query_desc.sourceText) }
-            .to_str()
-            .unwrap()
-            .to_string()
-            .to_lowercase();
-
-        if query_desc.operation == CmdType::CMD_SELECT {
-            let query_first_word = query_string.split_whitespace().next().unwrap_or("");
-
-            if query_first_word != "explain" {
-                unsafe {
-                    query_desc
-                        .plannedstmt
-                        .as_ref()
-                        .map(|ps| self.notice_on_seq_scans(ps.planTree, ps.rtable, &query_string));
-                }
+        if PG_NO_SEQSCAN_LEVEL.get() != DetectionLevelEnum::Off {
+            unsafe {
+                HOOK_OPTION = Some(NoSeqscanHooks {
+                    tables_in_seqscans: Vec::new(),
+                })
+            };
+            match query_desc.operation {
+                CmdType::CMD_SELECT
+                | CmdType::CMD_UPDATE
+                | CmdType::CMD_INSERT
+                | CmdType::CMD_DELETE
+                | CmdType::CMD_MERGE => self.check_query(&query_desc),
+                _ => {}
             }
         }
         prev_hook(query_desc, eflags)
     }
 }
 
-pub static mut HOOK_OPTION: Option<NoSeqscanHooks> = None; 
+pub static mut HOOK_OPTION: Option<NoSeqscanHooks> = None;
 
 #[allow(deprecated, static_mut_refs)]
 pub unsafe fn init_hooks() {
-    HOOK_OPTION = Some(NoSeqscanHooks { tables_in_seqscans: HashSet::new() });
+    HOOK_OPTION = Some(NoSeqscanHooks {
+        tables_in_seqscans: Vec::new(),
+    });
     register_hook(HOOK_OPTION.as_mut().unwrap())
 }
