@@ -13,6 +13,7 @@ PG extension to prevent seqscan on dev environment
 
 - `pg_no_seqscan.ignored_schemas` to support a list of schemas to ignore when checking seqscan, useful to ignore internal schemas such as `pg_catalog` or `information_schema`
 - `pg_no_seqscan.level` to define behavior when a sequential scan occurs. Values can be: `off` (useful for pausing the extension), `warn` (log in postgres), `error` (postgres error)
+- Sequential scans can be ignored on any query that contains the following comment: `pg_no_seqscan_skip`
 
 ## Motivation
 

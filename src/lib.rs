@@ -77,6 +77,15 @@ create table bar as (select * from generate_series(1,10) as id);",
     }
 
     #[pg_test]
+    fn ignores_seqscan_on_query_with_ignore_comment() {
+        set_pg_seq_scan_level(DetectionLevelEnum::Error);
+        Spi::run("create table foo as (select * from generate_series(1,10) as id);")
+            .expect("Setup failed");
+
+        Spi::run("select * from foo /* pg_no_seqscan_skip */;").unwrap();
+    }
+
+    #[pg_test]
     fn ignores_on_seqscan_when_explain() {
         set_pg_seq_scan_level(DetectionLevelEnum::Warn);
         Spi::run("create table foo as (select * from generate_series(1,10) as id);")

@@ -3,6 +3,7 @@ use pgrx::pg_sys::{CmdType, List, NodeTag::T_SeqScan, Plan, QueryDesc, SeqScan};
 use pgrx::{error, notice, PgBox};
 #[allow(deprecated)]
 use pgrx::{register_hook, HookResult, PgHooks};
+use regex::Regex;
 
 use crate::guc::{DetectionLevelEnum, PG_NO_SEQSCAN_LEVEL};
 use crate::helpers::{resolve_namespace_name, resolve_table_name, scanned_table};
@@ -21,8 +22,7 @@ impl NoSeqscanHooks {
             .to_string()
             .to_lowercase();
 
-        let query_first_word = query_string.split_whitespace().next().unwrap_or("");
-        if query_first_word == "explain" {
+        if self.ignore_query_for_explain(&query_string) {
             return;
         }
 
@@ -35,6 +35,10 @@ impl NoSeqscanHooks {
         self.check_plan_recursively(ps.planTree, ps.rtable);
 
         if !self.tables_in_seqscans.is_empty() {
+            if self.ignore_query_for_comment(&query_string) {
+                return;
+            }
+
             let message = format!(
                 "A 'Sequential Scan' on {} has been detected.
   - Run an EXPLAIN on your query to check the query plan.
@@ -62,6 +66,18 @@ Query: {}
                 self.check_plan_recursively(node.righttree, rtables);
             }
         }
+    }
+
+    fn ignore_query_for_explain(&mut self, query_string: &str) -> bool {
+        let query_first_word = query_string.split_whitespace().next().unwrap_or("");
+
+        return query_first_word == "explain";
+    }
+
+    fn ignore_query_for_comment(&mut self, query_string: &str) -> bool {
+        let re = Regex::new(r"/\*\s*pg_no_seqscan_skip\s*\*/").unwrap();
+
+        return re.is_match(&query_string);
     }
 
     unsafe fn check_current_node(&mut self, node: *mut Plan, rtables: *mut List) {
