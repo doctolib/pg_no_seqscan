@@ -55,8 +55,9 @@ mod tests {
     }
 
     #[pg_test]
+    #[should_panic(expected = "A 'Sequential Scan' on foo has been detected.")]
     fn detects_seqscan_on_multiple_selects() {
-        set_pg_seq_scan_level(DetectionLevelEnum::Warn);
+        set_pg_seq_scan_level(DetectionLevelEnum::Error);
         Spi::run(
             "create table foo as (select * from generate_series(1,10) as id);
 create table bar as (select * from generate_series(1,10) as id);",
@@ -83,22 +84,22 @@ create table bar as (select * from generate_series(1,10) as id);",
             .expect("Setup failed");
 
         Spi::run("select * from foo /* pg_no_seqscan_skip */;").unwrap();
+        Spi::run("select * from foo /* pg_no_seqscan_skip something */;").unwrap();
+        Spi::run("select * from foo /*pg_no_seqscan_skip*/;").unwrap();
     }
 
     #[pg_test]
     fn ignores_on_seqscan_when_explain() {
-        set_pg_seq_scan_level(DetectionLevelEnum::Warn);
+        set_pg_seq_scan_level(DetectionLevelEnum::Error);
         Spi::run("create table foo as (select * from generate_series(1,10) as id);")
             .expect("Setup failed");
 
         Spi::run("explain select * from foo;").unwrap();
-
-        assert_no_seq_scan();
     }
 
     #[pg_test]
     fn does_nothing_when_query_by_pk() {
-        set_pg_seq_scan_level(DetectionLevelEnum::Warn);
+        set_pg_seq_scan_level(DetectionLevelEnum::Error);
         Spi::run(
             "create table foo (id bigint PRIMARY KEY);
              insert into foo SELECT generate_series(1,10);

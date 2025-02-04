@@ -22,10 +22,6 @@ impl NoSeqscanHooks {
             .to_string()
             .to_lowercase();
 
-        if self.ignore_query_for_explain(&query_string) {
-            return;
-        }
-
         let plannedstmt_ref = unsafe { query_desc.plannedstmt.as_ref() };
         if plannedstmt_ref.is_none() {
             return;
@@ -35,7 +31,9 @@ impl NoSeqscanHooks {
         self.check_plan_recursively(ps.planTree, ps.rtable);
 
         if !self.tables_in_seqscans.is_empty() {
-            if self.ignore_query_for_comment(&query_string) {
+            if self.ignore_query_for_comment(&query_string)
+                || self.ignore_query_for_explain(&query_string)
+            {
                 return;
             }
 
@@ -71,13 +69,13 @@ Query: {}
     fn ignore_query_for_explain(&mut self, query_string: &str) -> bool {
         let query_first_word = query_string.split_whitespace().next().unwrap_or("");
 
-        return query_first_word == "explain";
+        query_first_word == "explain"
     }
 
     fn ignore_query_for_comment(&mut self, query_string: &str) -> bool {
-        let re = Regex::new(r"/\*\s*pg_no_seqscan_skip\s*\*/").unwrap();
+        let re = Regex::new(r"\/\*\s*pg_no_seqscan_skip(?:\s+[^\*]*)?\s*\*\/").unwrap();
 
-        return re.is_match(&query_string);
+        re.is_match(&query_string)
     }
 
     unsafe fn check_current_node(&mut self, node: *mut Plan, rtables: *mut List) {
