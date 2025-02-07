@@ -18,6 +18,7 @@ pub extern "C" fn _PG_init() {
 mod tests {
     use crate::{guc::DetectionLevelEnum, hooks::HOOK_OPTION};
     use pgrx::prelude::*;
+    use std::panic;
 
     #[pg_test]
     fn ignores_on_seqscan_when_level_off() {
@@ -32,14 +33,12 @@ mod tests {
     }
 
     #[pg_test]
-    #[should_panic(expected = "A 'Sequential Scan' on foo has been detected.")]
     fn panics_on_seqscan_when_level_error() {
         set_pg_seq_scan_level(DetectionLevelEnum::Error);
 
         Spi::run("create table foo as (select * from generate_series(1,10) as id);")
             .expect("Setup failed");
-
-        Spi::run("select * from foo;").unwrap();
+        assert_seq_scan_error("select * from foo;", vec!["foo".to_string()]);
     }
 
     #[pg_test]
@@ -50,12 +49,10 @@ mod tests {
             .expect("Setup failed");
 
         Spi::run("select * from foo;").unwrap();
-
         assert_seq_scan(vec!["foo".to_string()]);
     }
 
     #[pg_test]
-    #[should_panic(expected = "A 'Sequential Scan' on foo has been detected.")]
     fn detects_seqscan_on_multiple_selects() {
         set_pg_seq_scan_level(DetectionLevelEnum::Error);
         Spi::run(
@@ -64,17 +61,8 @@ create table bar as (select * from generate_series(1,10) as id);",
         )
         .expect("Setup failed");
 
-        Spi::run("select * from foo;").unwrap();
-        unsafe {
-            assert_eq!(
-                HOOK_OPTION.as_mut().unwrap().tables_in_seqscans,
-                vec!["foo".to_string()]
-            );
-        }
-
-        Spi::run("select * from bar;").unwrap();
-
-        assert_seq_scan(vec!["bar".to_string()]);
+        assert_seq_scan_error("select * from foo;", vec!["foo".to_string()]);
+        assert_seq_scan_error("select * from bar;", vec!["bar".to_string()]);
     }
 
     #[pg_test]
@@ -108,7 +96,6 @@ create table bar as (select * from generate_series(1,10) as id);",
         .expect("Setup failed");
 
         Spi::run("select * from foo where id=1;").unwrap();
-
         assert_no_seq_scan();
     }
 
@@ -127,6 +114,11 @@ create table bar as (select * from generate_series(1,10) as id);",
         unsafe {
             assert_eq!(HOOK_OPTION.as_mut().unwrap().tables_in_seqscans, table_vec);
         }
+    }
+
+    fn assert_seq_scan_error(query:&str, table_vec: Vec<String>) {
+        assert!(panic::catch_unwind(|| Spi::run(query)).is_err());
+        assert_seq_scan(table_vec);
     }
 
     fn assert_no_seq_scan() {
