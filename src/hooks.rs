@@ -1,6 +1,6 @@
 use crate::guc;
 use pgrx::pg_sys::{CmdType, List, NodeTag::T_SeqScan, Plan, QueryDesc, SeqScan};
-use pgrx::{error, notice, PgBox};
+use pgrx::{error, notice, pg_sys, PgBox};
 #[allow(deprecated)]
 use pgrx::{register_hook, HookResult, PgHooks};
 use regex::Regex;
@@ -8,8 +8,9 @@ use regex::Regex;
 use crate::guc::{DetectionLevelEnum, PG_NO_SEQSCAN_LEVEL};
 use crate::helpers::{resolve_namespace_name, resolve_table_name, scanned_table};
 use std::ffi::CStr;
-
+#[derive(Clone)]
 pub struct NoSeqscanHooks {
+    pub is_explain_stmt: bool,
     pub tables_in_seqscans: Vec<String>,
 }
 
@@ -32,7 +33,6 @@ impl NoSeqscanHooks {
 
         if !self.tables_in_seqscans.is_empty() {
             if self.ignore_query_for_comment(&query_string)
-                || self.ignore_query_for_explain(&query_string)
             {
                 return;
             }
@@ -64,12 +64,6 @@ Query: {}
                 self.check_plan_recursively(node.righttree, rtables);
             }
         }
-    }
-
-    fn ignore_query_for_explain(&mut self, query_string: &str) -> bool {
-        let query_first_word = query_string.split_whitespace().next().unwrap_or("");
-
-        query_first_word == "explain"
     }
 
     fn ignore_query_for_comment(&mut self, query_string: &str) -> bool {
@@ -107,6 +101,53 @@ Query: {}
 
 #[allow(deprecated)]
 impl PgHooks for NoSeqscanHooks {
+
+    fn process_utility_hook(
+        &mut self,
+        pstmt: PgBox<pg_sys::PlannedStmt>,
+        query_string: &core::ffi::CStr,
+        read_only_tree: Option<bool>,
+        context: pg_sys::ProcessUtilityContext::Type,
+        params: PgBox<pg_sys::ParamListInfoData>,
+        query_env: PgBox<pg_sys::QueryEnvironment>,
+        dest: PgBox<pg_sys::DestReceiver>,
+        completion_tag: *mut pg_sys::QueryCompletion,
+        prev_hook: fn(
+            pstmt: PgBox<pg_sys::PlannedStmt>,
+            query_string: &core::ffi::CStr,
+            read_only_tree: Option<bool>,
+            context: pg_sys::ProcessUtilityContext::Type,
+            params: PgBox<pg_sys::ParamListInfoData>,
+            query_env: PgBox<pg_sys::QueryEnvironment>,
+            dest: PgBox<pg_sys::DestReceiver>,
+            completion_tag: *mut pg_sys::QueryCompletion,
+        ) -> HookResult<()>,
+    ) -> HookResult<()> {
+        if PG_NO_SEQSCAN_LEVEL.get() != DetectionLevelEnum::Off {
+            let node: &mut pg_sys::Node = unsafe { &mut *(pstmt.utilityStmt as *mut pg_sys::Node) };
+            let is_explain_stmt = node.type_ == pg_sys::NodeTag::T_ExplainStmt;
+            if is_explain_stmt {
+                unsafe {
+                    HOOK_OPTION = Some(NoSeqscanHooks {
+                        is_explain_stmt: is_explain_stmt,
+                        tables_in_seqscans: Vec::new(),
+                    });
+                };
+            }
+        }
+        prev_hook(
+            pstmt,
+            query_string,
+            read_only_tree,
+            context,
+            params,
+            query_env,
+            dest,
+            completion_tag,
+        )
+    }
+
+    #[allow(static_mut_refs)]
     fn executor_start(
         &mut self,
         query_desc: PgBox<QueryDesc>,
@@ -114,17 +155,24 @@ impl PgHooks for NoSeqscanHooks {
         prev_hook: fn(query_desc: PgBox<QueryDesc>, eflags: i32) -> HookResult<()>,
     ) -> HookResult<()> {
         if PG_NO_SEQSCAN_LEVEL.get() != DetectionLevelEnum::Off {
+            let is_explain_stmt = unsafe { HOOK_OPTION.as_ref().unwrap().is_explain_stmt };
+            // reset hook state
             unsafe {
                 HOOK_OPTION = Some(NoSeqscanHooks {
+                    is_explain_stmt: false,
                     tables_in_seqscans: Vec::new(),
-                })
-            };
+                });
+            }
             match query_desc.operation {
                 CmdType::CMD_SELECT
                 | CmdType::CMD_UPDATE
                 | CmdType::CMD_INSERT
                 | CmdType::CMD_DELETE
-                | CmdType::CMD_MERGE => self.check_query(&query_desc),
+                | CmdType::CMD_MERGE => {
+                    if !is_explain_stmt {
+                        self.check_query(&query_desc);
+                    }
+                },
                 _ => {}
             }
         }
@@ -137,6 +185,7 @@ pub static mut HOOK_OPTION: Option<NoSeqscanHooks> = None;
 #[allow(deprecated, static_mut_refs)]
 pub unsafe fn init_hooks() {
     HOOK_OPTION = Some(NoSeqscanHooks {
+        is_explain_stmt: false,
         tables_in_seqscans: Vec::new(),
     });
     register_hook(HOOK_OPTION.as_mut().unwrap())

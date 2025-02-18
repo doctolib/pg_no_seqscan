@@ -86,6 +86,27 @@ create table bar as (select * from generate_series(1,10) as id);",
     }
 
     #[pg_test]
+    fn ignores_on_seqscan_when_explain_analyze() {
+        set_pg_seq_scan_level(DetectionLevelEnum::Error);
+        Spi::run("create table foo as (select * from generate_series(1,10) as id);")
+            .expect("Setup failed");
+
+        Spi::run("explain analyze select * from foo;").unwrap();
+        assert_no_seq_scan();
+    }
+
+    #[pg_test]
+    fn detects_seqscan_after_explain_analyze() {
+        set_pg_seq_scan_level(DetectionLevelEnum::Error);
+        Spi::run("create table foo as (select * from generate_series(1,10) as id);")
+            .expect("Setup failed");
+
+        Spi::run("explain analyze select * from foo;").unwrap();
+        assert_no_seq_scan();
+        assert_seq_scan_error("select * from foo;", vec!["foo".to_string()]);
+    }
+
+    #[pg_test]
     fn does_nothing_when_query_by_pk() {
         set_pg_seq_scan_level(DetectionLevelEnum::Error);
         Spi::run(
