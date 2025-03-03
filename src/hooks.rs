@@ -5,7 +5,7 @@ use pgrx::{error, notice, pg_sys, PgBox};
 use pgrx::{register_hook, HookResult, PgHooks};
 use regex::Regex;
 
-use crate::guc::{DetectionLevelEnum, PG_NO_SEQSCAN_LEVEL};
+use crate::guc::{DetectionLevelEnum, PG_NO_SEQSCAN_IGNORED_USERS, PG_NO_SEQSCAN_LEVEL};
 use crate::helpers::{resolve_namespace_name, resolve_table_name, scanned_table};
 use std::ffi::CStr;
 #[derive(Clone)]
@@ -70,6 +70,25 @@ Query: {}
         let re = Regex::new(r"\/\*\s*pg_no_seqscan_skip(?:\s+[^\*]*)?\s*\*\/").unwrap();
 
         re.is_match(&query_string)
+    }
+
+    fn is_ignored_user(&mut self) -> bool {
+        match PG_NO_SEQSCAN_IGNORED_USERS.get() {
+            Some(ignored_users_setting) => {
+                let current_user = unsafe { pg_sys::GetUserNameFromId(pg_sys::GetUserId(), true) };
+                let current_user_str = unsafe { CStr::from_ptr(current_user) }
+                    .to_str()
+                    .expect("Failed to convert CStr to str");
+                ignored_users_setting
+                    .to_str()
+                    .unwrap()
+                    .split(',')
+                    .any(|ignored_user| current_user_str == ignored_user)
+            }
+            None => {
+                return false;
+            }
+        }
     }
 
     unsafe fn check_current_node(&mut self, node: *mut Plan, rtables: *mut List) {
@@ -163,13 +182,14 @@ impl PgHooks for NoSeqscanHooks {
                     tables_in_seqscans: Vec::new(),
                 });
             }
+
             match query_desc.operation {
                 CmdType::CMD_SELECT
                 | CmdType::CMD_UPDATE
                 | CmdType::CMD_INSERT
                 | CmdType::CMD_DELETE
                 | CmdType::CMD_MERGE => {
-                    if !is_explain_stmt {
+                    if !is_explain_stmt && !self.is_ignored_user() {
                         self.check_query(&query_desc);
                     }
                 },

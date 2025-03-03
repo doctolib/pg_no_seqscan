@@ -22,7 +22,7 @@ mod tests {
 
     #[pg_test]
     fn ignores_on_seqscan_when_level_off() {
-        set_pg_seq_scan_level(DetectionLevelEnum::Off);
+        set_pg_no_seqscan_level(DetectionLevelEnum::Off);
 
         Spi::run("create table foo as (select * from generate_series(1,10) as id);")
             .expect("Setup failed");
@@ -34,7 +34,7 @@ mod tests {
 
     #[pg_test]
     fn panics_on_seqscan_when_level_error() {
-        set_pg_seq_scan_level(DetectionLevelEnum::Error);
+        set_pg_no_seqscan_level(DetectionLevelEnum::Error);
 
         Spi::run("create table foo as (select * from generate_series(1,10) as id);")
             .expect("Setup failed");
@@ -43,7 +43,7 @@ mod tests {
 
     #[pg_test]
     fn warns_on_seqscan_when_level_warn() {
-        set_pg_seq_scan_level(DetectionLevelEnum::Warn);
+        set_pg_no_seqscan_level(DetectionLevelEnum::Warn);
 
         Spi::run("create table foo as (select * from generate_series(1,10) as id);")
             .expect("Setup failed");
@@ -54,10 +54,10 @@ mod tests {
 
     #[pg_test]
     fn detects_seqscan_on_multiple_selects() {
-        set_pg_seq_scan_level(DetectionLevelEnum::Error);
+        set_pg_no_seqscan_level(DetectionLevelEnum::Error);
         Spi::run(
             "create table foo as (select * from generate_series(1,10) as id);
-create table bar as (select * from generate_series(1,10) as id);",
+    create table bar as (select * from generate_series(1,10) as id);",
         )
         .expect("Setup failed");
 
@@ -67,7 +67,7 @@ create table bar as (select * from generate_series(1,10) as id);",
 
     #[pg_test]
     fn ignores_seqscan_on_query_with_ignore_comment() {
-        set_pg_seq_scan_level(DetectionLevelEnum::Error);
+        set_pg_no_seqscan_level(DetectionLevelEnum::Error);
         Spi::run("create table foo as (select * from generate_series(1,10) as id);")
             .expect("Setup failed");
 
@@ -78,7 +78,7 @@ create table bar as (select * from generate_series(1,10) as id);",
 
     #[pg_test]
     fn ignores_on_seqscan_when_explain() {
-        set_pg_seq_scan_level(DetectionLevelEnum::Error);
+        set_pg_no_seqscan_level(DetectionLevelEnum::Error);
         Spi::run("create table foo as (select * from generate_series(1,10) as id);")
             .expect("Setup failed");
 
@@ -87,7 +87,7 @@ create table bar as (select * from generate_series(1,10) as id);",
 
     #[pg_test]
     fn ignores_on_seqscan_when_explain_analyze() {
-        set_pg_seq_scan_level(DetectionLevelEnum::Error);
+        set_pg_no_seqscan_level(DetectionLevelEnum::Error);
         Spi::run("create table foo as (select * from generate_series(1,10) as id);")
             .expect("Setup failed");
 
@@ -96,8 +96,27 @@ create table bar as (select * from generate_series(1,10) as id);",
     }
 
     #[pg_test]
+    fn ignores_on_ignored_users() {
+        Spi::run("create table foo as (select * from generate_series(1,10) as id);")
+            .expect("Setup failed");
+
+        Spi::run("CREATE USER test_user").expect("failed to create user");
+        set_ignored_users(vec!["test_user_2", "test_user"]);
+
+        Spi::run("GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE foo TO test_user")
+            .expect("failed to grant access to test_user");
+
+        Spi::run("SET SESSION AUTHORIZATION test_user")
+            .expect("failed to set session authorization");
+
+        Spi::run(" select * from foo;").unwrap();
+
+        assert_no_seq_scan();
+    }
+
+    #[pg_test]
     fn detects_seqscan_after_explain_analyze() {
-        set_pg_seq_scan_level(DetectionLevelEnum::Error);
+        set_pg_no_seqscan_level(DetectionLevelEnum::Error);
         Spi::run("create table foo as (select * from generate_series(1,10) as id);")
             .expect("Setup failed");
 
@@ -108,7 +127,7 @@ create table bar as (select * from generate_series(1,10) as id);",
 
     #[pg_test]
     fn does_nothing_when_query_by_pk() {
-        set_pg_seq_scan_level(DetectionLevelEnum::Error);
+        set_pg_no_seqscan_level(DetectionLevelEnum::Error);
         Spi::run(
             "create table foo (id bigint PRIMARY KEY);
              insert into foo SELECT generate_series(1,10);
@@ -120,7 +139,7 @@ create table bar as (select * from generate_series(1,10) as id);",
         assert_no_seq_scan();
     }
 
-    fn set_pg_seq_scan_level(detection_level: DetectionLevelEnum) {
+    fn set_pg_no_seqscan_level(detection_level: DetectionLevelEnum) {
         let level = match detection_level {
             DetectionLevelEnum::Warn => "WARN",
             DetectionLevelEnum::Error => "ERROR",
@@ -129,6 +148,12 @@ create table bar as (select * from generate_series(1,10) as id);",
 
         let set_level = format!("SET pg_no_seqscan.level = {}", level);
         Spi::run(&set_level).expect("Unable to set settings");
+    }
+
+    fn set_ignored_users(users: Vec<&str>) {
+        let users_list = users.join(",");
+        let set_ignore_users = format!("SET pg_no_seqscan.ignored_users = '{}'", users_list);
+        Spi::run(&set_ignore_users).expect("Unable to set ignored_users");
     }
 
     fn assert_seq_scan(table_vec: Vec<String>) {

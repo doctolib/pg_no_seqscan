@@ -16,6 +16,9 @@ pub static PG_NO_SEQSCAN_LEVEL: GucSetting<DetectionLevelEnum> =
 pub static PG_NO_SEQSCAN_IGNORED_SCHEMAS: GucSetting<Option<&'static CStr>> =
     GucSetting::<Option<&'static CStr>>::new(Some(c"pg_catalog,information_schema"));
 
+pub static PG_NO_SEQSCAN_IGNORED_USERS: GucSetting<Option<&'static CStr>> =
+    GucSetting::<Option<&'static CStr>>::new(None);
+
 pub fn register_gucs() {
     GucRegistry::define_enum_guc(
         "pg_no_seqscan.level",
@@ -28,9 +31,18 @@ pub fn register_gucs() {
 
     GucRegistry::define_string_guc(
         "pg_no_seqscan.ignored_schemas",
-        "List of schemas to ignore, separated by commas",
+        "List of schemas to ignore, comma separated",
         "",
         &PG_NO_SEQSCAN_IGNORED_SCHEMAS,
+        GucContext::Suset,
+        GucFlags::SUPERUSER_ONLY,
+    );
+
+    GucRegistry::define_string_guc(
+        "pg_no_seqscan.ignored_users",
+        "List of users to ignore, comma separated",
+        "",
+        &PG_NO_SEQSCAN_IGNORED_USERS,
         GucContext::Suset,
         GucFlags::SUPERUSER_ONLY,
     );
