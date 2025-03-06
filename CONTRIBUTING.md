@@ -1,3 +1,10 @@
+# Contributing
+
+## Run PG with the extension
+- Run a PG with the extension `cargo pgrx run`
+- Run tests with `cargo test`
+- Also standard rust commands are available: `cargo fmt` to format and `cargo clippy` to lint.
+
 In order to use this bgworker with pgrx, you'll need to edit the proper postgresql.conf file in "${PGRX_HOME}/data-$PGVER/postgresql.conf" and add this line to the end:
 
     shared_preload_libraries = 'pg_no_seqscan.so'
