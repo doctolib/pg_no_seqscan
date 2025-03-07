@@ -49,6 +49,7 @@ jit_above_cost = 40000000000                                       # avoids to u
 If you need, uncomment these settings to use the value of your preference:
 - `pg_no_seqscan.ignored_schemas` to support a list of schemas to ignore when checking seqscan, useful to ignore internal schemas such as `pg_catalog` or `information_schema`
 - `pg_no_seqscan.ignored_users` to support a list of users to ignore when checking seqscan, useful to ignore users that run migrations
+- `pg_no_seqscan.ignored_tables` to support a list of tables to ignore when checking seqscan, useful for tables that will always be small
 - `pg_no_seqscan.level` to define behavior when a sequential scan occurs. Values can be: `off` (useful for pausing the extension), `warn` (log in postgres), `error` (postgres error)
 4. restart the server
 5. run: `CREATE EXTENSION pg_no_seqscan;`

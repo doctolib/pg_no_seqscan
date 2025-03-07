@@ -5,7 +5,7 @@ use pgrx::{error, notice, pg_sys, PgBox};
 use pgrx::{register_hook, HookResult, PgHooks};
 use regex::Regex;
 
-use crate::guc::{DetectionLevelEnum, PG_NO_SEQSCAN_IGNORED_USERS, PG_NO_SEQSCAN_LEVEL};
+use crate::guc::DetectionLevelEnum;
 use crate::helpers::{resolve_namespace_name, resolve_table_name, scanned_table};
 use std::ffi::CStr;
 #[derive(Clone)]
@@ -17,11 +17,7 @@ pub struct NoSeqscanHooks {
 impl NoSeqscanHooks {
     fn check_query(&mut self, query_desc: &PgBox<QueryDesc>) {
         // See PlannedStmt documentation: https://github.com/postgres/postgres/blob/master/src/include/nodes/plannodes.h#L46
-        let query_string = unsafe { CStr::from_ptr(query_desc.sourceText) }
-            .to_str()
-            .unwrap()
-            .to_string()
-            .to_lowercase();
+        let query_string = self.get_query_string(query_desc);
 
         let plannedstmt_ref = unsafe { query_desc.plannedstmt.as_ref() };
         if plannedstmt_ref.is_none() {
@@ -31,27 +27,9 @@ impl NoSeqscanHooks {
         let ps = plannedstmt_ref.unwrap();
         self.check_plan_recursively(ps.planTree, ps.rtable);
 
-        if !self.tables_in_seqscans.is_empty() {
-            if self.ignore_query_for_comment(&query_string)
-            {
-                return;
-            }
-
-            let message = format!(
-                "A 'Sequential Scan' on {} has been detected.
-  - Run an EXPLAIN on your query to check the query plan.
-  - Make sure the query is compatible with the existing indexes.
-
-Query: {}
-",
-                self.tables_in_seqscans.join(","),
-                query_string
-            );
-            match PG_NO_SEQSCAN_LEVEL.get() {
-                DetectionLevelEnum::Warn => notice!("{message}"),
-                DetectionLevelEnum::Error => error!("{message}"),
-                DetectionLevelEnum::Off => unreachable!(),
-            }
+        if !self.tables_in_seqscans.is_empty() && !self.is_ignored_query_for_comment(&query_string)
+        {
+            self.report_seqscan(&query_string);
         }
     }
 
@@ -66,14 +44,40 @@ Query: {}
         }
     }
 
-    fn ignore_query_for_comment(&mut self, query_string: &str) -> bool {
+    fn report_seqscan(&self, query_string: &str) {
+        let message = format!(
+            "A 'Sequential Scan' on {} has been detected.
+  - Run an EXPLAIN on your query to check the query plan.
+  - Make sure the query is compatible with the existing indexes.
+
+Query: {}
+",
+            self.tables_in_seqscans.join(","),
+            query_string
+        );
+        match guc::PG_NO_SEQSCAN_LEVEL.get() {
+            DetectionLevelEnum::Warn => notice!("{message}"),
+            DetectionLevelEnum::Error => error!("{message}"),
+            DetectionLevelEnum::Off => unreachable!(),
+        }
+    }
+
+    fn get_query_string(&self, query_desc: &PgBox<QueryDesc>) -> String {
+        unsafe { CStr::from_ptr(query_desc.sourceText) }
+            .to_str()
+            .unwrap()
+            .to_string()
+            .to_lowercase()
+    }
+
+    fn is_ignored_query_for_comment(&mut self, query_string: &str) -> bool {
         let re = Regex::new(r"\/\*\s*pg_no_seqscan_skip(?:\s+[^\*]*)?\s*\*\/").unwrap();
 
         re.is_match(&query_string)
     }
 
     fn is_ignored_user(&mut self) -> bool {
-        match PG_NO_SEQSCAN_IGNORED_USERS.get() {
+        match guc::PG_NO_SEQSCAN_IGNORED_USERS.get() {
             Some(ignored_users_setting) => {
                 let current_user = unsafe { pg_sys::GetUserNameFromId(pg_sys::GetUserId(), true) };
                 let current_user_str = unsafe { CStr::from_ptr(current_user) }
@@ -91,6 +95,28 @@ Query: {}
         }
     }
 
+    fn is_ignored_schema(&mut self, schema: String) -> bool {
+        match guc::PG_NO_SEQSCAN_IGNORED_SCHEMAS.get() {
+            Some(ignored_schemas_setting) => ignored_schemas_setting
+                .to_str()
+                .unwrap()
+                .split(',')
+                .any(|ignored_schema| schema == ignored_schema),
+            None => false,
+        }
+    }
+
+    fn is_ignored_table(&mut self, table_name: String) -> bool {
+        match guc::PG_NO_SEQSCAN_IGNORED_TABLES.get() {
+            Some(ignored_tables_setting) => ignored_tables_setting
+                .to_str()
+                .unwrap()
+                .split(',')
+                .any(|ignored_table| table_name == ignored_table),
+            None => false,
+        }
+    }
+
     unsafe fn check_current_node(&mut self, node: *mut Plan, rtables: *mut List) {
         if node.as_ref().map(|plan_ref| plan_ref.type_).unwrap() != T_SeqScan {
             return;
@@ -100,20 +126,17 @@ Query: {}
         let table_oid = scanned_table(seq_scan.scan.scanrelid, rtables).unwrap();
         let schema = resolve_namespace_name(table_oid).unwrap();
 
-        let ignored_schemas = guc::PG_NO_SEQSCAN_IGNORED_SCHEMAS
-            .get()
-            .unwrap()
-            .to_str()
-            .expect("Ignored schema should be valid");
-        if ignored_schemas
-            .split(',')
-            .any(|ignored_schema| schema == ignored_schema)
-        {
+        if self.is_ignored_schema(schema) {
             return;
         }
 
         let table_name = resolve_table_name(table_oid);
         let table_name = table_name.unwrap();
+
+        if self.is_ignored_table(table_name.clone()) {
+            return;
+        }
+
         self.tables_in_seqscans.push(table_name.clone());
     }
 }
@@ -142,8 +165,8 @@ impl PgHooks for NoSeqscanHooks {
             completion_tag: *mut pg_sys::QueryCompletion,
         ) -> HookResult<()>,
     ) -> HookResult<()> {
-        if PG_NO_SEQSCAN_LEVEL.get() != DetectionLevelEnum::Off {
-            let node: &mut pg_sys::Node = unsafe { &mut *(pstmt.utilityStmt as *mut pg_sys::Node) };
+        if guc::PG_NO_SEQSCAN_LEVEL.get() != DetectionLevelEnum::Off {
+            let node: &mut pg_sys::Node = unsafe { &mut *(pstmt.utilityStmt) };
             let is_explain_stmt = node.type_ == pg_sys::NodeTag::T_ExplainStmt;
             if is_explain_stmt {
                 unsafe {
@@ -173,7 +196,7 @@ impl PgHooks for NoSeqscanHooks {
         eflags: i32,
         prev_hook: fn(query_desc: PgBox<QueryDesc>, eflags: i32) -> HookResult<()>,
     ) -> HookResult<()> {
-        if PG_NO_SEQSCAN_LEVEL.get() != DetectionLevelEnum::Off {
+        if guc::PG_NO_SEQSCAN_LEVEL.get() != DetectionLevelEnum::Off {
             let is_explain_stmt = unsafe { HOOK_OPTION.as_ref().unwrap().is_explain_stmt };
             // reset hook state
             unsafe {

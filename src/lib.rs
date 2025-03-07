@@ -115,6 +115,24 @@ mod tests {
     }
 
     #[pg_test]
+    fn ignores_on_ignored_tables() {
+        Spi::run(
+            "create table foo as (select * from generate_series(1,10) as id);
+            create table bar as (select * from generate_series(1,10) as id);
+            create table baz as (select * from generate_series(1,10) as id);
+            ",
+        )
+        .expect("Setup failed");
+
+        Spi::run("SET pg_no_seqscan.ignored_tables = 'something,foo,baz'")
+            .expect("Unable to set ignored_tables");
+
+        Spi::run("select * from foo;").unwrap();
+        Spi::run("select * from baz;").unwrap();
+        assert_seq_scan_error("select * from bar;", vec!["bar".to_string()]);
+    }
+
+    #[pg_test]
     fn detects_seqscan_after_explain_analyze() {
         set_pg_no_seqscan_level(DetectionLevelEnum::Error);
         Spi::run("create table foo as (select * from generate_series(1,10) as id);")
