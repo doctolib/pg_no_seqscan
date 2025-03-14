@@ -21,6 +21,32 @@ mod tests {
     use std::panic;
 
     #[pg_test]
+    fn check_only_schemas_in_settings() {
+        set_pg_no_seqscan_level(DetectionLevelEnum::Error);
+
+        Spi::run(
+            "
+            CREATE SCHEMA test_schema1;
+            CREATE SCHEMA test_schema2;
+            CREATE TABLE test_schema1.foo AS (SELECT * FROM generate_series(1,10) as id);
+            CREATE TABLE test_schema2.bar AS (SELECT * FROM generate_series(1,10) as id);
+            CREATE TABLE public.baz AS (SELECT * FROM generate_series(1,10) as id);
+        ",
+        )
+        .expect("Setup failed");
+
+        set_check_schemas(vec!["test_schema1", "public"]);
+
+        // These should be ignored due to schema not in check_schemas setting
+        Spi::run("SELECT * FROM test_schema2.bar;").unwrap();
+
+        // This should error due to seqscan in checked schema
+        assert_seq_scan_error("SELECT * FROM test_schema1.foo;", vec!["foo".to_string()]);
+        assert_seq_scan_error("SELECT * FROM public.baz;", vec!["baz".to_string()]);
+        assert_seq_scan_error("SELECT * FROM baz;", vec!["baz".to_string()]);
+    }
+
+    #[pg_test]
     fn ignores_on_seqscan_when_level_off() {
         set_pg_no_seqscan_level(DetectionLevelEnum::Off);
 
@@ -96,12 +122,12 @@ mod tests {
     }
 
     #[pg_test]
-    fn ignores_on_ignored_users() {
+    fn ignores_on_ignore_users() {
         Spi::run("create table foo as (select * from generate_series(1,10) as id);")
             .expect("Setup failed");
 
         Spi::run("CREATE USER test_user").expect("failed to create user");
-        set_ignored_users(vec!["test_user_2", "test_user"]);
+        set_ignore_users(vec!["test_user_2", "test_user"]);
 
         Spi::run("GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE foo TO test_user")
             .expect("failed to grant access to test_user");
@@ -115,7 +141,7 @@ mod tests {
     }
 
     #[pg_test]
-    fn ignores_on_ignored_tables() {
+    fn ignores_on_ignore_tables() {
         Spi::run(
             "create table foo as (select * from generate_series(1,10) as id);
             create table bar as (select * from generate_series(1,10) as id);
@@ -124,8 +150,8 @@ mod tests {
         )
         .expect("Setup failed");
 
-        Spi::run("SET pg_no_seqscan.ignored_tables = 'something,foo,baz'")
-            .expect("Unable to set ignored_tables");
+        Spi::run("SET pg_no_seqscan.ignore_tables = 'something,foo,baz'")
+            .expect("Unable to set ignore_tables");
 
         Spi::run("select * from foo;").unwrap();
         Spi::run("select * from baz;").unwrap();
@@ -168,41 +194,16 @@ mod tests {
         Spi::run(&set_level).expect("Unable to set settings");
     }
 
-    fn set_ignored_users(users: Vec<&str>) {
+    fn set_ignore_users(users: Vec<&str>) {
         let users_list = users.join(",");
-        let set_ignore_users = format!("SET pg_no_seqscan.ignored_users = '{}'", users_list);
-        Spi::run(&set_ignore_users).expect("Unable to set ignored_users");
+        let set_ignore_users = format!("SET pg_no_seqscan.ignore_users = '{}'", users_list);
+        Spi::run(&set_ignore_users).expect("Unable to set ignore_users");
     }
 
-    fn set_ignored_schemas(schemas: Vec<&str>) {
+    fn set_check_schemas(schemas: Vec<&str>) {
         let schemas_list = schemas.join(",");
-        let set_ignore_schemas = format!("SET pg_no_seqscan.ignored_schemas = '{}'", schemas_list);
-        Spi::run(&set_ignore_schemas).expect("Unable to set ignored_schemas");
-    }
-
-    #[pg_test]
-    fn ignores_on_ignored_schemas() {
-        set_pg_no_seqscan_level(DetectionLevelEnum::Error);
-
-        Spi::run(
-            "
-            CREATE SCHEMA test_schema1;
-            CREATE SCHEMA test_schema2;
-            CREATE TABLE test_schema1.foo AS (SELECT * FROM generate_series(1,10) as id);
-            CREATE TABLE test_schema2.bar AS (SELECT * FROM generate_series(1,10) as id);
-            CREATE TABLE public.baz AS (SELECT * FROM generate_series(1,10) as id);
-        ",
-        )
-        .expect("Setup failed");
-
-        set_ignored_schemas(vec!["test_schema1", "test_schema2"]);
-
-        // These should be ignored due to schema
-        Spi::run("SELECT * FROM test_schema1.foo;").unwrap();
-        Spi::run("SELECT * FROM test_schema2.bar;").unwrap();
-
-        // This should error due to seqscan in non-ignored schema
-        assert_seq_scan_error("SELECT * FROM public.baz;", vec!["baz".to_string()]);
+        let set_check_schemas = format!("SET pg_no_seqscan.check_schemas = '{}'", schemas_list);
+        Spi::run(&set_check_schemas).expect("Unable to set check_schemas");
     }
 
     fn assert_seq_scan(table_vec: Vec<String>) {

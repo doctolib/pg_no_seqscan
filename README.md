@@ -35,22 +35,27 @@ export PG_PKGLIBDIR=$(pg_config --pkglibdir)
 ```
 
 2. copy the generated files:
-    - pg_no_seqscan.so goes to `$PG_PKGLIBDIR` directory
-    - pg_no_seqscan.control goes to `$PG_SHAREDIR/extension` directory
+   - pg_no_seqscan.so goes to `$PG_PKGLIBDIR` directory
+   - pg_no_seqscan.control goes to `$PG_SHAREDIR/extension` directory
 3. change the postgresql.conf (`show config_file` will tell you where it's located), and add:
+
 ```
 shared_preload_libraries = 'pg_no_seqscan.so'                      # load pg_no_seqscan extension
 enable_seqscan = 'off'                                             # discourage seqscans
 jit_above_cost = 40000000000                                       # avoids to use jit on each query, as the cost becomes much higher with enable_seqscan off
-# pg_no_seqscan.ignored_schemas = 'pg_catalog,information_schema'  # tables in this schema will be ignored
-# pg_no_seqscan.ignored_users = ''                                 # users that will be ignored
+# pg_no_seqscan.check_schemas = 'public'                           # only tables in this schema will be checked
+# pg_no_seqscan.ignore_users = ''                                  # users that will be ignored
+# pg_no_seqscan.ignore_tables = ''                                 # tables that will be ignored
 # pg_no_seqscan.level = 'Error'                                    # Detection level for sequential scans
 ```
+
 If you need, uncomment these settings to use the value of your preference:
-- `pg_no_seqscan.ignored_schemas` to support a list of schemas to ignore when checking seqscan, useful to ignore internal schemas such as `pg_catalog` or `information_schema`
-- `pg_no_seqscan.ignored_users` to support a list of users to ignore when checking seqscan, useful to ignore users that run migrations
-- `pg_no_seqscan.ignored_tables` to support a list of tables to ignore when checking seqscan, useful for tables that will always be small
+
+- `pg_no_seqscan.check_schemas` to support a list of schemas to check seqscan for, default value is set to `public`
+- `pg_no_seqscan.ignore_users` to support a list of users to ignore when checking seqscan, useful to ignore users that run migrations
+- `pg_no_seqscan.ignore_tables` to support a list of tables to ignore when checking seqscan, useful for tables that will always be small
 - `pg_no_seqscan.level` to define behavior when a sequential scan occurs. Values can be: `off` (useful for pausing the extension), `warn` (log in postgres), `error` (postgres error)
+
 4. restart the server
 5. run: `CREATE EXTENSION pg_no_seqscan;`
 
@@ -94,6 +99,7 @@ id
 ```
 
 Notes:
+
 - as mentioned in the example, sequential scans will be ignored on any query that contains the following comment: `pg_no_seqscan_skip`
 - it's possible to override the settings in the current session by using `SET <setting_name> = <setting value>`, and to show them with `SHOW <setting_name>`. As a reminder settings are:
   - `enable_seqscan`
@@ -105,16 +111,20 @@ Notes:
 ## Motivation
 
 ### Why seqscans can be problematic
+
 When retrieving data from a table, one of the two most frequent strategies are:
+
 - sequential scans (seqscans), reading directly each tuple of the table until some conditions are met
 - index scans, browsing an index to find the rows that are relevant and then retrieving the related data in the table.
 
 In some cases sequential scans could be faster than index scans:
+
 - table is very small
 - the query needs to read a high percentage of the tuples of the table
-In such situations, browsing an index will require to read both most of the index pages and most of the table pages, where an seq scan would directly fetch the appropriate tuples and be more efficient.
+  In such situations, browsing an index will require to read both most of the index pages and most of the table pages, where an seq scan would directly fetch the appropriate tuples and be more efficient.
 
 In most of the other situations, sequential scan could be a symptom of a missing index. To filter the table, postgres has no other choice than filtering directly the rows in the table, and when the table is large, that could cause:
+
 - intensive I/Os
 - intensive CPU
 - slow query response time for the current query
@@ -123,9 +133,11 @@ In most of the other situations, sequential scan could be a symptom of a missing
 These issues can, in turn, affect the availability and responsiveness of production applications that rely on the database.
 
 ### Looking for a strategy to prevent slow seqscan in production
+
 We have observed multiple instances where unintended `Seqscan` occurred in production, despite our efforts to prevent them. These incidents have highlighted the limitations of our current approaches to avoiding sequential scans.
 
 Training developers to avoid `Seqscan` in their SQL queries is an important step, but it is not sufficient to ensure that no `Seqscan` will occur in production. Here are several factors that could lead to seqscans:
+
 - Dataset: seqscans are expected locally as the data set is small. Having a local dataset that represents the production could be challenging (due to data volume and anonymization requirements) 
 - Lack of training
 - Application evolution (changing a filter or an ORDER BY clause for example)

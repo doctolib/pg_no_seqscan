@@ -77,17 +77,17 @@ Query: {}
     }
 
     fn is_ignored_user(&mut self) -> bool {
-        match guc::PG_NO_SEQSCAN_IGNORED_USERS.get() {
-            Some(ignored_users_setting) => {
+        match guc::PG_NO_SEQSCAN_IGNORE_USERS.get() {
+            Some(ignore_users_setting) => {
                 let current_user = unsafe { pg_sys::GetUserNameFromId(pg_sys::GetUserId(), true) };
                 let current_user_str = unsafe { CStr::from_ptr(current_user) }
                     .to_str()
                     .expect("Failed to convert CStr to str");
-                ignored_users_setting
+                ignore_users_setting
                     .to_str()
                     .unwrap()
                     .split(',')
-                    .any(|ignored_user| current_user_str == ignored_user)
+                    .any(|ignore_user| current_user_str == ignore_user)
             }
             None => {
                 return false;
@@ -95,24 +95,24 @@ Query: {}
         }
     }
 
-    fn is_ignored_schema(&mut self, schema: String) -> bool {
-        match guc::PG_NO_SEQSCAN_IGNORED_SCHEMAS.get() {
-            Some(ignored_schemas_setting) => ignored_schemas_setting
+    fn is_checked_schema(&mut self, schema: String) -> bool {
+        match guc::PG_NO_SEQSCAN_CHECK_SCHEMAS.get() {
+            Some(check_schemas_setting) => check_schemas_setting
                 .to_str()
                 .unwrap()
                 .split(',')
-                .any(|ignored_schema| schema == ignored_schema),
+                .any(|check_schema| schema == check_schema),
             None => false,
         }
     }
 
     fn is_ignored_table(&mut self, table_name: String) -> bool {
-        match guc::PG_NO_SEQSCAN_IGNORED_TABLES.get() {
-            Some(ignored_tables_setting) => ignored_tables_setting
+        match guc::PG_NO_SEQSCAN_IGNORE_TABLES.get() {
+            Some(ignore_tables_setting) => ignore_tables_setting
                 .to_str()
                 .unwrap()
                 .split(',')
-                .any(|ignored_table| table_name == ignored_table),
+                .any(|ignore_table| table_name == ignore_table),
             None => false,
         }
     }
@@ -126,7 +126,7 @@ Query: {}
         let table_oid = scanned_table(seq_scan.scan.scanrelid, rtables).unwrap();
         let schema = resolve_namespace_name(table_oid).unwrap();
 
-        if self.is_ignored_schema(schema) {
+        if !self.is_checked_schema(schema) {
             return;
         }
 
