@@ -71,9 +71,8 @@ Query: {}
     }
 
     fn is_ignored_query_for_comment(&mut self, query_string: &str) -> bool {
-        let re = Regex::new(r"\/\*\s*pg_no_seqscan_skip(?:\s+[^\*]*)?\s*\*\/").unwrap();
-
-        re.is_match(&query_string)
+        let re = Regex::new(r"/\*.*pg_no_seqscan_skip.*\*/").unwrap();
+        re.is_match(query_string)
     }
 
     fn is_ignored_user(&mut self) -> bool {
@@ -89,9 +88,7 @@ Query: {}
                     .split(',')
                     .any(|ignore_user| current_user_str == ignore_user)
             }
-            None => {
-                return false;
-            }
+            None => false,
         }
     }
 

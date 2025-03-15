@@ -98,7 +98,7 @@ mod tests {
             .expect("Setup failed");
 
         Spi::run("select * from foo /* pg_no_seqscan_skip */;").unwrap();
-        Spi::run("select * from foo /* pg_no_seqscan_skip something */;").unwrap();
+        Spi::run("select * from foo /* host_name:a-b-1.2.foo,db:my_database,git:0123456789abcdef,pg_no_seqscan_skip,path:/foo/source.java:108`(<>)' */;").unwrap();
         Spi::run("select * from foo /*pg_no_seqscan_skip*/;").unwrap();
     }
 
