@@ -183,6 +183,15 @@ mod tests {
         assert_no_seq_scan();
     }
 
+    #[pg_test]
+    fn does_nothing_when_querying_a_sequence() {
+        set_pg_no_seqscan_level(DetectionLevelEnum::Error);
+        Spi::run("CREATE SEQUENCE foo_seq;").expect("Setup failed");
+
+        Spi::run("select last_value from foo_seq;").unwrap();
+        assert_no_seq_scan();
+    }
+
     fn set_pg_no_seqscan_level(detection_level: DetectionLevelEnum) {
         let level = match detection_level {
             DetectionLevelEnum::Warn => "WARN",

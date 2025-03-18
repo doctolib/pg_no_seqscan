@@ -1,6 +1,6 @@
 use crate::guc;
-use pgrx::pg_sys::{CmdType, List, NodeTag::T_SeqScan, Plan, QueryDesc, SeqScan};
-use pgrx::{error, notice, pg_sys, PgBox};
+use pgrx::pg_sys::{CmdType, List, NodeTag::T_SeqScan, Oid, Plan, QueryDesc, SeqScan};
+use pgrx::{error, notice, pg_sys, PgBox, PgRelation};
 #[allow(deprecated)]
 use pgrx::{register_hook, HookResult, PgHooks};
 use regex::Regex;
@@ -121,6 +121,9 @@ Query: {}
 
         let seq_scan: &mut SeqScan = &mut *(node as *mut SeqScan);
         let table_oid = scanned_table(seq_scan.scan.scanrelid, rtables).unwrap();
+        if self.is_sequence(table_oid) {
+            return;
+        }
         let schema = resolve_namespace_name(table_oid).unwrap();
 
         if !self.is_checked_schema(schema) {
@@ -135,6 +138,13 @@ Query: {}
         }
 
         self.tables_in_seqscans.push(table_name.clone());
+    }
+
+    fn is_sequence(&self, relation_oid: Oid) -> bool {
+        unsafe {
+            let relation = PgRelation::open(relation_oid);
+            (*relation.rd_rel).relkind == (pg_sys::RELKIND_SEQUENCE as i8)
+        }
     }
 }
 
