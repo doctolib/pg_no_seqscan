@@ -19,14 +19,17 @@ PG extension to prevent seqscan on dev environment. This can help in dev environ
 - Initialize pgrx home directory: `cargo pgrx init --pg15 download`
 
 ### Build the extension
+
 For now, you need to build the extension locally:
 `cargo build -r`
 That will generate the following files:
+
 - pg_no_seqscan.control
 - pg_no_seqscan.so
 - pg_no_seqscan--$VERSION.sql
 
 ### Load and configure the extension in a local PG database
+
 1. check the share and pkglib directories of your favorite postgres database with:
 
 ```bash
@@ -44,16 +47,18 @@ shared_preload_libraries = 'pg_no_seqscan.so'                      # load pg_no_
 enable_seqscan = 'off'                                             # discourage seqscans
 jit_above_cost = 40000000000                                       # avoids to use jit on each query, as the cost becomes much higher with enable_seqscan off
 # pg_no_seqscan.check_schemas = 'public'                           # only tables in this schema will be checked
+# pg_no_seqscan.check_tables = 'huge_table'                         # only those tables will be checked
 # pg_no_seqscan.ignore_users = ''                                  # users that will be ignored
-# pg_no_seqscan.ignore_tables = ''                                 # tables that will be ignored
+# pg_no_seqscan.ignore_tables = ''                                 # tables that will be ignored - this setting is ignored if some tables are declared in `check_tables`
 # pg_no_seqscan.level = 'Error'                                    # Detection level for sequential scans
 ```
 
 If you need, uncomment these settings to use the value of your preference:
 
 - `pg_no_seqscan.check_schemas` to support a list of schemas to check seqscan for, default value is set to `public`
+- `pg_no_seqscan.check_tables` to support a list of tables to check seqscan for, useful when only wanting to check some tables. All tables are checked if this setting is empty.
 - `pg_no_seqscan.ignore_users` to support a list of users to ignore when checking seqscan, useful to ignore users that run migrations
-- `pg_no_seqscan.ignore_tables` to support a list of tables to ignore when checking seqscan, useful for tables that will always be small
+- `pg_no_seqscan.ignore_tables` to support a list of tables to ignore when checking seqscan, useful for tables that will always be small - this setting is ignored if some tables are declared in `check_tables`
 - `pg_no_seqscan.level` to define behavior when a sequential scan occurs. Values can be: `off` (useful for pausing the extension), `warn` (log in postgres), `error` (postgres error)
 
 4. restart the server

@@ -6,7 +6,9 @@ use pgrx::{register_hook, HookResult, PgHooks};
 use regex::Regex;
 
 use crate::guc::DetectionLevelEnum;
-use crate::helpers::{resolve_namespace_name, resolve_table_name, scanned_table};
+use crate::helpers::{
+    extract_comma_separated_setting, resolve_namespace_name, resolve_table_name, scanned_table,
+};
 use std::ffi::CStr;
 #[derive(Clone)]
 pub struct NoSeqscanHooks {
@@ -82,10 +84,7 @@ Query: {}
                 let current_user_str = unsafe { CStr::from_ptr(current_user) }
                     .to_str()
                     .expect("Failed to convert CStr to str");
-                ignore_users_setting
-                    .to_str()
-                    .unwrap()
-                    .split(',')
+                extract_comma_separated_setting(ignore_users_setting)
                     .any(|ignore_user| current_user_str == ignore_user)
             }
             None => false,
@@ -94,21 +93,27 @@ Query: {}
 
     fn is_checked_schema(&mut self, schema: String) -> bool {
         match guc::PG_NO_SEQSCAN_CHECK_SCHEMAS.get() {
-            Some(check_schemas_setting) => check_schemas_setting
-                .to_str()
-                .unwrap()
-                .split(',')
+            Some(check_schemas_setting) => extract_comma_separated_setting(check_schemas_setting)
                 .any(|check_schema| schema == check_schema),
             None => false,
         }
     }
 
+    fn check_tables_options_is_set(&mut self) -> bool {
+        guc::PG_NO_SEQSCAN_CHECK_TABLES.get().is_some()
+    }
+
+    fn is_checked_table(&mut self, table_name: String) -> bool {
+        match guc::PG_NO_SEQSCAN_CHECK_TABLES.get() {
+            Some(check_tables_setting) => extract_comma_separated_setting(check_tables_setting)
+                .any(|check_table| table_name == check_table),
+            None => true,
+        }
+    }
+
     fn is_ignored_table(&mut self, table_name: String) -> bool {
         match guc::PG_NO_SEQSCAN_IGNORE_TABLES.get() {
-            Some(ignore_tables_setting) => ignore_tables_setting
-                .to_str()
-                .unwrap()
-                .split(',')
+            Some(ignore_tables_setting) => extract_comma_separated_setting(ignore_tables_setting)
                 .any(|ignore_table| table_name == ignore_table),
             None => false,
         }
@@ -133,7 +138,11 @@ Query: {}
         let table_name = resolve_table_name(table_oid);
         let table_name = table_name.unwrap();
 
-        if self.is_ignored_table(table_name.clone()) {
+        if !self.is_checked_table(table_name.clone()) {
+            return;
+        }
+
+        if !self.check_tables_options_is_set() && self.is_ignored_table(table_name.clone()) {
             return;
         }
 

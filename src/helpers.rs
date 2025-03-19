@@ -1,6 +1,10 @@
 use pgrx::pg_sys::{get_namespace_name, get_rel_name, get_rel_namespace, rt_fetch, List, Oid};
 use std::ffi::{c_char, CStr};
 
+pub fn extract_comma_separated_setting(comma_separated_string: &CStr) -> std::str::Split<'_, char> {
+    comma_separated_string.to_str().unwrap().split(',')
+}
+
 pub unsafe fn string_from_ptr(ptr: *const c_char) -> Option<String> {
     match CStr::from_ptr(ptr).to_str() {
         Ok(str_value) => Some(str_value.to_string()),

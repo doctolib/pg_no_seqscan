@@ -22,6 +22,9 @@ pub static PG_NO_SEQSCAN_IGNORE_USERS: GucSetting<Option<&'static CStr>> =
 pub static PG_NO_SEQSCAN_IGNORE_TABLES: GucSetting<Option<&'static CStr>> =
     GucSetting::<Option<&'static CStr>>::new(None);
 
+pub static PG_NO_SEQSCAN_CHECK_TABLES: GucSetting<Option<&'static CStr>> =
+    GucSetting::<Option<&'static CStr>>::new(None);
+
 pub fn register_gucs() {
     GucRegistry::define_enum_guc(
         "pg_no_seqscan.level",
@@ -42,6 +45,15 @@ pub fn register_gucs() {
     );
 
     GucRegistry::define_string_guc(
+        "pg_no_seqscan.check_tables",
+        "List of tables to check seqscan for, comma separated",
+        "If empty, pg_no_seqscan will check all tables",
+        &PG_NO_SEQSCAN_CHECK_TABLES,
+        GucContext::Suset,
+        GucFlags::SUPERUSER_ONLY,
+    );
+
+    GucRegistry::define_string_guc(
         "pg_no_seqscan.ignore_users",
         "List of users to ignore, comma separated",
         "",
@@ -53,7 +65,7 @@ pub fn register_gucs() {
     GucRegistry::define_string_guc(
         "pg_no_seqscan.ignore_tables",
         "List of tables to ignore, comma separated",
-        "",
+        "This setting is ignored if some tables are declared in `check_tables`",
         &PG_NO_SEQSCAN_IGNORE_TABLES,
         GucContext::Suset,
         GucFlags::SUPERUSER_ONLY,

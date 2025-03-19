@@ -159,6 +159,45 @@ mod tests {
     }
 
     #[pg_test]
+    fn checks_on_check_tables() {
+        Spi::run(
+            "create table foo as (select * from generate_series(1,10) as id);
+            create table bar as (select * from generate_series(1,10) as id);
+            create table baz as (select * from generate_series(1,10) as id);
+            ",
+        )
+        .expect("Setup failed");
+
+        Spi::run("SET pg_no_seqscan.check_tables = 'something,foo,baz'")
+            .expect("Unable to set check_tables");
+
+        Spi::run("select * from bar;").unwrap();
+        assert_seq_scan_error("select * from foo;", vec!["foo".to_string()]);
+        assert_seq_scan_error("select * from baz;", vec!["baz".to_string()]);
+    }
+
+    #[pg_test]
+    fn ignores_ignore_tables_option_if_check_tables_option_is_set() {
+        Spi::run(
+            "create table foo as (select * from generate_series(1,10) as id);
+            create table bar as (select * from generate_series(1,10) as id);
+            create table baz as (select * from generate_series(1,10) as id);
+            ",
+        )
+        .expect("Setup failed");
+
+        Spi::run("SET pg_no_seqscan.check_tables = 'something,foo,baz'")
+            .expect("Unable to set check_tables");
+
+        Spi::run("SET pg_no_seqscan.ignore_tables = 'something,foo,baz'")
+            .expect("Unable to set ignore_tables");
+
+        Spi::run("select * from bar;").unwrap();
+        assert_seq_scan_error("select * from foo;", vec!["foo".to_string()]);
+        assert_seq_scan_error("select * from baz;", vec!["baz".to_string()]);
+    }
+
+    #[pg_test]
     fn detects_seqscan_after_explain_analyze() {
         set_pg_no_seqscan_level(DetectionLevelEnum::Error);
         Spi::run("create table foo as (select * from generate_series(1,10) as id);")
