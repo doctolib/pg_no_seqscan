@@ -7,7 +7,8 @@ use regex::Regex;
 
 use crate::guc::DetectionLevelEnum;
 use crate::helpers::{
-    extract_comma_separated_setting, resolve_namespace_name, resolve_table_name, scanned_table,
+    current_db_name, extract_comma_separated_setting, resolve_namespace_name, resolve_table_name,
+    scanned_table,
 };
 use std::ffi::CStr;
 #[derive(Clone)]
@@ -91,6 +92,20 @@ Query: {}
         }
     }
 
+    fn is_checked_database(&mut self, database: String) -> bool {
+        match guc::PG_NO_SEQSCAN_CHECK_DATABASES.get() {
+            Some(check_databases_setting) => {
+                if check_databases_setting.is_empty() {
+                    true
+                } else {
+                    extract_comma_separated_setting(check_databases_setting)
+                        .any(|check_database| database == check_database)
+                }
+            }
+            None => true,
+        }
+    }
+
     fn is_checked_schema(&mut self, schema: String) -> bool {
         match guc::PG_NO_SEQSCAN_CHECK_SCHEMAS.get() {
             Some(check_schemas_setting) => extract_comma_separated_setting(check_schemas_setting)
@@ -129,8 +144,13 @@ Query: {}
         if self.is_sequence(table_oid) {
             return;
         }
-        let schema = resolve_namespace_name(table_oid).unwrap();
 
+        let current_db_name = current_db_name();
+        if !self.is_checked_database(current_db_name) {
+            return;
+        }
+
+        let schema = resolve_namespace_name(table_oid).unwrap();
         if !self.is_checked_schema(schema) {
             return;
         }

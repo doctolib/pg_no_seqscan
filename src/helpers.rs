@@ -1,3 +1,4 @@
+use pgrx::pg_sys;
 use pgrx::pg_sys::{get_namespace_name, get_rel_name, get_rel_namespace, rt_fetch, List, Oid};
 use std::ffi::{c_char, CStr};
 
@@ -32,4 +33,9 @@ pub unsafe fn resolve_table_name(table_oid: Oid) -> Option<String> {
     }
 
     string_from_ptr(relname_ptr)
+}
+
+pub unsafe fn current_db_name() -> String {
+    let db_oid = pg_sys::MyDatabaseId;
+    string_from_ptr(pg_sys::get_database_name(db_oid)).unwrap()
 }

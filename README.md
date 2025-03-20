@@ -46,8 +46,9 @@ export PG_PKGLIBDIR=$(pg_config --pkglibdir)
 shared_preload_libraries = 'pg_no_seqscan.so'                      # load pg_no_seqscan extension
 enable_seqscan = 'off'                                             # discourage seqscans
 jit_above_cost = 40000000000                                       # avoids to use jit on each query, as the cost becomes much higher with enable_seqscan off
+# pg_no_seqscan.check_databases = ''                               # only tables in these databases will be checked - all databases if empty
 # pg_no_seqscan.check_schemas = 'public'                           # only tables in this schema will be checked
-# pg_no_seqscan.check_tables = 'huge_table'                         # only those tables will be checked
+# pg_no_seqscan.check_tables = 'huge_table'                        # only those tables will be checked
 # pg_no_seqscan.ignore_users = ''                                  # users that will be ignored
 # pg_no_seqscan.ignore_tables = ''                                 # tables that will be ignored - this setting is ignored if some tables are declared in `check_tables`
 # pg_no_seqscan.level = 'Error'                                    # Detection level for sequential scans
@@ -55,6 +56,7 @@ jit_above_cost = 40000000000                                       # avoids to u
 
 If you need, uncomment these settings to use the value of your preference:
 
+- `pg_no_seqscan.check_databases` to support a list of databases to check seqscan for, default value is set to ``. All tables are checked if this setting is empty.
 - `pg_no_seqscan.check_schemas` to support a list of schemas to check seqscan for, default value is set to `public`
 - `pg_no_seqscan.check_tables` to support a list of tables to check seqscan for, useful when only wanting to check some tables. All tables are checked if this setting is empty.
 - `pg_no_seqscan.ignore_users` to support a list of users to ignore when checking seqscan, useful to ignore users that run migrations
@@ -109,6 +111,7 @@ Notes:
 - it's possible to override the settings in the current session by using `SET <setting_name> = <setting value>`, and to show them with `SHOW <setting_name>`. As a reminder settings are:
   - `enable_seqscan`
   - `jit_above_cost` 
+  - `pg_no_seqscan.check_databases`
   - `pg_no_seqscan.ignored_schemas`
   - `pg_no_seqscan.ignored_users`
   - `pg_no_seqscan.level`

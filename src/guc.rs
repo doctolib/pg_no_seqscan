@@ -13,6 +13,9 @@ pub enum DetectionLevelEnum {
 pub static PG_NO_SEQSCAN_LEVEL: GucSetting<DetectionLevelEnum> =
     GucSetting::<DetectionLevelEnum>::new(DetectionLevelEnum::Error);
 
+pub static PG_NO_SEQSCAN_CHECK_DATABASES: GucSetting<Option<&'static CStr>> =
+    GucSetting::<Option<&'static CStr>>::new(None);
+
 pub static PG_NO_SEQSCAN_CHECK_SCHEMAS: GucSetting<Option<&'static CStr>> =
     GucSetting::<Option<&'static CStr>>::new(Some(c"public"));
 
@@ -33,6 +36,15 @@ pub fn register_gucs() {
         &PG_NO_SEQSCAN_LEVEL,
         GucContext::Userset,
         GucFlags::default(),
+    );
+
+    GucRegistry::define_string_guc(
+        "pg_no_seqscan.check_databases",
+        "List of databases to check seqscan for, comma separated",
+        "If empty, all databases will be checked",
+        &PG_NO_SEQSCAN_CHECK_DATABASES,
+        GucContext::Suset,
+        GucFlags::SUPERUSER_ONLY,
     );
 
     GucRegistry::define_string_guc(

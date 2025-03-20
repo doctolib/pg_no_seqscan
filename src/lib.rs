@@ -198,6 +198,44 @@ mod tests {
     }
 
     #[pg_test]
+    fn check_all_databases_when_check_database_is_not_defined() {
+        Spi::run("create table foo as (select * from generate_series(1,10) as id);")
+            .expect("Setup failed");
+
+        Spi::run("SET pg_no_seqscan.check_databases = '';").expect("Unable to set check_databases");
+        assert_seq_scan_error("select * from foo;", vec!["foo".to_string()]);
+    }
+
+    #[pg_test]
+    fn ignores_seqscan_on_db_not_defined_in_check_databases() {
+        Spi::run("create table foo as (select * from generate_series(1,10) as id);")
+            .expect("Setup failed");
+
+        Spi::run("SET pg_no_seqscan.check_databases = 'postgres';")
+            .expect("Unable to set check_databases");
+        Spi::run("select * from foo;").unwrap();
+        assert_no_seq_scan();
+    }
+
+    #[pg_test]
+    fn detects_seqscan_on_db_defined_in_check_databases() {
+        Spi::run("create table foo as (select * from generate_series(1,10) as id);")
+            .expect("Setup failed");
+
+        Spi::run("SET pg_no_seqscan.check_databases = 'pgrx_tests';")
+            .expect("Unable to set check_databases");
+        assert_seq_scan_error("select * from foo;", vec!["foo".to_string()]);
+
+        Spi::run("SET pg_no_seqscan.check_databases = 'postgres,pgrx_tests';")
+            .expect("Unable to set check_databases");
+        assert_seq_scan_error("select * from foo;", vec!["foo".to_string()]);
+
+        Spi::run("SET pg_no_seqscan.check_databases = 'pgrx_tests,postgres';")
+            .expect("Unable to set check_databases");
+        assert_seq_scan_error("select * from foo;", vec!["foo".to_string()]);
+    }
+
+    #[pg_test]
     fn detects_seqscan_after_explain_analyze() {
         set_pg_no_seqscan_level(DetectionLevelEnum::Error);
         Spi::run("create table foo as (select * from generate_series(1,10) as id);")
