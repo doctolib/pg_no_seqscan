@@ -39,3 +39,8 @@ pub unsafe fn current_db_name() -> String {
     let db_oid = pg_sys::MyDatabaseId;
     string_from_ptr(pg_sys::get_database_name(db_oid)).unwrap()
 }
+
+pub unsafe fn current_username() -> String {
+    let current_user = unsafe { pg_sys::GetUserNameFromId(pg_sys::GetUserId(), true) };
+    string_from_ptr(current_user).unwrap()
+}

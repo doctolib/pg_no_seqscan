@@ -7,8 +7,8 @@ use regex::Regex;
 
 use crate::guc::DetectionLevelEnum;
 use crate::helpers::{
-    current_db_name, extract_comma_separated_setting, resolve_namespace_name, resolve_table_name,
-    scanned_table,
+    current_db_name, current_username, extract_comma_separated_setting, resolve_namespace_name,
+    resolve_table_name, scanned_table,
 };
 use std::ffi::CStr;
 #[derive(Clone)]
@@ -78,51 +78,50 @@ Query: {}
         re.is_match(query_string)
     }
 
-    fn is_ignored_user(&mut self) -> bool {
+    fn is_ignored_user(&mut self, current_user: String) -> bool {
         match guc::PG_NO_SEQSCAN_IGNORE_USERS.get() {
-            Some(ignore_users_setting) => {
-                let current_user = unsafe { pg_sys::GetUserNameFromId(pg_sys::GetUserId(), true) };
-                let current_user_str = unsafe { CStr::from_ptr(current_user) }
-                    .to_str()
-                    .expect("Failed to convert CStr to str");
-                extract_comma_separated_setting(ignore_users_setting)
-                    .any(|ignore_user| current_user_str == ignore_user)
-            }
-            None => false,
+            Some(ignore_users_setting) => extract_comma_separated_setting(ignore_users_setting)
+                .any(|ignore_user| current_user == ignore_user),
+            None => unreachable!(),
         }
     }
 
     fn is_checked_database(&mut self, database: String) -> bool {
         match guc::PG_NO_SEQSCAN_CHECK_DATABASES.get() {
             Some(check_databases_setting) => {
-                if check_databases_setting.is_empty() {
-                    true
-                } else {
-                    extract_comma_separated_setting(check_databases_setting)
+                check_databases_setting.is_empty()
+                    || extract_comma_separated_setting(check_databases_setting)
                         .any(|check_database| database == check_database)
-                }
             }
-            None => true,
+            None => unreachable!(),
         }
     }
 
     fn is_checked_schema(&mut self, schema: String) -> bool {
         match guc::PG_NO_SEQSCAN_CHECK_SCHEMAS.get() {
-            Some(check_schemas_setting) => extract_comma_separated_setting(check_schemas_setting)
-                .any(|check_schema| schema == check_schema),
-            None => false,
+            Some(check_schemas_setting) => {
+                check_schemas_setting.is_empty()
+                    || extract_comma_separated_setting(check_schemas_setting)
+                        .any(|check_schema| schema == check_schema)
+            }
+            None => unreachable!(),
         }
     }
 
     fn check_tables_options_is_set(&mut self) -> bool {
-        guc::PG_NO_SEQSCAN_CHECK_TABLES.get().is_some()
+        guc::PG_NO_SEQSCAN_CHECK_TABLES
+            .get()
+            .is_some_and(|tables| !tables.is_empty())
     }
 
     fn is_checked_table(&mut self, table_name: String) -> bool {
         match guc::PG_NO_SEQSCAN_CHECK_TABLES.get() {
-            Some(check_tables_setting) => extract_comma_separated_setting(check_tables_setting)
-                .any(|check_table| table_name == check_table),
-            None => true,
+            Some(check_tables_setting) => {
+                check_tables_setting.is_empty()
+                    || extract_comma_separated_setting(check_tables_setting)
+                        .any(|check_table| table_name == check_table)
+            }
+            None => unreachable!(),
         }
     }
 
@@ -130,7 +129,7 @@ Query: {}
         match guc::PG_NO_SEQSCAN_IGNORE_TABLES.get() {
             Some(ignore_tables_setting) => extract_comma_separated_setting(ignore_tables_setting)
                 .any(|ignore_table| table_name == ignore_table),
-            None => false,
+            None => unreachable!(),
         }
     }
 
@@ -248,7 +247,7 @@ impl PgHooks for NoSeqscanHooks {
                 | CmdType::CMD_INSERT
                 | CmdType::CMD_DELETE
                 | CmdType::CMD_MERGE => {
-                    if !is_explain_stmt && !self.is_ignored_user() {
+                    if !is_explain_stmt && !self.is_ignored_user(unsafe { current_username() }) {
                         self.check_query(&query_desc);
                     }
                 },

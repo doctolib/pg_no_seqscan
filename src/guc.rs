@@ -14,19 +14,19 @@ pub static PG_NO_SEQSCAN_LEVEL: GucSetting<DetectionLevelEnum> =
     GucSetting::<DetectionLevelEnum>::new(DetectionLevelEnum::Error);
 
 pub static PG_NO_SEQSCAN_CHECK_DATABASES: GucSetting<Option<&'static CStr>> =
-    GucSetting::<Option<&'static CStr>>::new(None);
+    GucSetting::<Option<&'static CStr>>::new(Some(c""));
 
 pub static PG_NO_SEQSCAN_CHECK_SCHEMAS: GucSetting<Option<&'static CStr>> =
     GucSetting::<Option<&'static CStr>>::new(Some(c"public"));
 
 pub static PG_NO_SEQSCAN_IGNORE_USERS: GucSetting<Option<&'static CStr>> =
-    GucSetting::<Option<&'static CStr>>::new(None);
+    GucSetting::<Option<&'static CStr>>::new(Some(c""));
 
 pub static PG_NO_SEQSCAN_IGNORE_TABLES: GucSetting<Option<&'static CStr>> =
-    GucSetting::<Option<&'static CStr>>::new(None);
+    GucSetting::<Option<&'static CStr>>::new(Some(c""));
 
 pub static PG_NO_SEQSCAN_CHECK_TABLES: GucSetting<Option<&'static CStr>> =
-    GucSetting::<Option<&'static CStr>>::new(None);
+    GucSetting::<Option<&'static CStr>>::new(Some(c""));
 
 pub fn register_gucs() {
     GucRegistry::define_enum_guc(
