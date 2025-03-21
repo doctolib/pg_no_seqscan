@@ -150,7 +150,7 @@ mod tests {
         )
         .expect("Setup failed");
 
-        Spi::run("SET pg_no_seqscan_ignore_tables = 'something,foo,baz'")
+        Spi::run("SET pg_no_seqscan.ignore_tables = 'something,foo,baz'")
             .expect("Unable to set ignore_tables");
 
         Spi::run("select * from foo;").unwrap();
@@ -168,7 +168,7 @@ mod tests {
         )
         .expect("Setup failed");
 
-        Spi::run("SET pg_no_seqscan_check_tables = 'something,foo,baz'")
+        Spi::run("SET pg_no_seqscan.check_tables = 'something,foo,baz'")
             .expect("Unable to set check_tables");
 
         Spi::run("select * from bar;").unwrap();
@@ -186,10 +186,10 @@ mod tests {
         )
         .expect("Setup failed");
 
-        Spi::run("SET pg_no_seqscan_check_tables = 'something,foo,baz'")
+        Spi::run("SET pg_no_seqscan.check_tables = 'something,foo,baz'")
             .expect("Unable to set check_tables");
 
-        Spi::run("SET pg_no_seqscan_ignore_tables = 'something,foo,baz'")
+        Spi::run("SET pg_no_seqscan.ignore_tables = 'something,foo,baz'")
             .expect("Unable to set ignore_tables");
 
         Spi::run("select * from bar;").unwrap();
@@ -202,7 +202,7 @@ mod tests {
         Spi::run("create table foo as (select * from generate_series(1,10) as id);")
             .expect("Setup failed");
 
-        Spi::run("SET pg_no_seqscan_check_databases = '';").expect("Unable to set check_databases");
+        Spi::run("SET pg_no_seqscan.check_databases = '';").expect("Unable to set check_databases");
         assert_seq_scan_error("select * from foo;", vec!["foo".to_string()]);
     }
 
@@ -211,7 +211,7 @@ mod tests {
         Spi::run("create table foo as (select * from generate_series(1,10) as id);")
             .expect("Setup failed");
 
-        Spi::run("SET pg_no_seqscan_check_databases = 'postgres';")
+        Spi::run("SET pg_no_seqscan.check_databases = 'postgres';")
             .expect("Unable to set check_databases");
         Spi::run("select * from foo;").unwrap();
         assert_no_seq_scan();
@@ -222,15 +222,15 @@ mod tests {
         Spi::run("create table foo as (select * from generate_series(1,10) as id);")
             .expect("Setup failed");
 
-        Spi::run("SET pg_no_seqscan_check_databases = 'pgrx_tests';")
+        Spi::run("SET pg_no_seqscan.check_databases = 'pgrx_tests';")
             .expect("Unable to set check_databases");
         assert_seq_scan_error("select * from foo;", vec!["foo".to_string()]);
 
-        Spi::run("SET pg_no_seqscan_check_databases = 'postgres,pgrx_tests';")
+        Spi::run("SET pg_no_seqscan.check_databases = 'postgres,pgrx_tests';")
             .expect("Unable to set check_databases");
         assert_seq_scan_error("select * from foo;", vec!["foo".to_string()]);
 
-        Spi::run("SET pg_no_seqscan_check_databases = 'pgrx_tests,postgres';")
+        Spi::run("SET pg_no_seqscan.check_databases = 'pgrx_tests,postgres';")
             .expect("Unable to set check_databases");
         assert_seq_scan_error("select * from foo;", vec!["foo".to_string()]);
     }
@@ -276,19 +276,19 @@ mod tests {
             DetectionLevelEnum::Off => "OFF",
         };
 
-        let set_level = format!("SET pg_no_seqscan_level = {}", level);
+        let set_level = format!("SET pg_no_seqscan.level = {}", level);
         Spi::run(&set_level).expect("Unable to set settings");
     }
 
     fn set_ignore_users(users: Vec<&str>) {
         let users_list = users.join(",");
-        let set_ignore_users = format!("SET pg_no_seqscan_ignore_users = '{}'", users_list);
+        let set_ignore_users = format!("SET pg_no_seqscan.ignore_users = '{}'", users_list);
         Spi::run(&set_ignore_users).expect("Unable to set ignore_users");
     }
 
     fn set_check_schemas(schemas: Vec<&str>) {
         let schemas_list = schemas.join(",");
-        let set_check_schemas = format!("SET pg_no_seqscan_check_schemas = '{}'", schemas_list);
+        let set_check_schemas = format!("SET pg_no_seqscan.check_schemas = '{}'", schemas_list);
         Spi::run(&set_check_schemas).expect("Unable to set check_schemas");
     }
 
