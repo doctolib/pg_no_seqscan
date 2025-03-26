@@ -1,14 +1,17 @@
 # pg_no_seqscan
 
-PG extension to prevent seqscan on dev environment. This can help in dev environment and CI to identify missing indexes that could cause dramatic performance in production.
+PG extension to prevent seqscan on dev environment. This can help in dev environment and CI to identify missing indexes
+that could cause dramatic performance in production.
 
 ⚠️ This extension is not meant to be used in production.
 
 ## How it works
 
-- Using `enable_seqscan = off` to discourage PostgreSQL from using sequential scans and prefer an index, even if the table is empty
+- Using `enable_seqscan = off` to discourage PostgreSQL from using sequential scans and prefer an index, even if the
+  table is empty
 - The extension parses the query plan and checks if there are any nodes with a sequential scan
-- If any are found, a notice message is shown or an exception is raised and the query fails (depending on the extension settings)
+- If any are found, a notice message is shown or an exception is raised and the query fails (depending on the extension
+  settings)
 
 ## How to use it
 
@@ -38,8 +41,8 @@ export PG_PKGLIBDIR=$(pg_config --pkglibdir)
 ```
 
 2. copy the generated files:
-   - pg_no_seqscan.so goes to `$PG_PKGLIBDIR` directory
-   - pg_no_seqscan.control goes to `$PG_SHAREDIR/extension` directory
+    - pg_no_seqscan.so goes to `$PG_PKGLIBDIR` directory
+    - pg_no_seqscan.control goes to `$PG_SHAREDIR/extension` directory
 3. change the postgresql.conf (`show config_file` will tell you where it's located), and add:
 
 ```
@@ -56,12 +59,17 @@ jit_above_cost = 40000000000                                       # avoids to u
 
 If you need, uncomment these settings to use the value of your preference:
 
-- `pg_no_seqscan.check_databases` to support a list of databases to check seqscan for, default value is set to ``. All tables are checked if this setting is empty.
+- `pg_no_seqscan.check_databases` to support a list of databases to check seqscan for, default value is set to ``. All
+  tables are checked if this setting is empty.
 - `pg_no_seqscan.check_schemas` to support a list of schemas to check seqscan for, default value is set to `public`
-- `pg_no_seqscan.check_tables` to support a list of tables to check seqscan for, useful when only wanting to check some tables. All tables are checked if this setting is empty.
-- `pg_no_seqscan.ignore_users` to support a list of users to ignore when checking seqscan, useful to ignore users that run migrations
-- `pg_no_seqscan.ignore_tables` to support a list of tables to ignore when checking seqscan, useful for tables that will always be small - this setting is ignored if some tables are declared in `check_tables`
-- `pg_no_seqscan.level` to define behavior when a sequential scan occurs. Values can be: `off` (useful for pausing the extension), `warn` (log in postgres), `error` (postgres error)
+- `pg_no_seqscan.check_tables` to support a list of tables to check seqscan for, useful when only wanting to check some
+  tables. All tables are checked if this setting is empty.
+- `pg_no_seqscan.ignore_users` to support a list of users to ignore when checking seqscan, useful to ignore users that
+  run migrations
+- `pg_no_seqscan.ignore_tables` to support a list of tables to ignore when checking seqscan, useful for tables that will
+  always be small - this setting is ignored if some tables are declared in `check_tables`
+- `pg_no_seqscan.level` to define behavior when a sequential scan occurs. Values can be: `off` (useful for pausing the
+  extension), `warn` (log in postgres), `error` (postgres error)
 
 4. restart the server
 5. run: `CREATE EXTENSION pg_no_seqscan;`
@@ -69,26 +77,33 @@ If you need, uncomment these settings to use the value of your preference:
 ### pg_no_seqscan is now ready
 
 ```postgresql
-create table foo as (select generate_series(1,10000) as id);
+create table foo as (select generate_series(1, 10000) as id);
 
-select * from foo where id = 123;
+select *
+from foo
+where id = 123;
 ERROR:  A 'Sequential Scan' on foo has been detected.
-  - Run an EXPLAIN on your query to check the query plan.
-    - Make sure the query is compatible with the existing indexes.
+  - Run an
+EXPLAIN on your query to check the query plan. - Make sure the query is compatible
+with the existing indexes.
 
 Query: select * from foo where id = 123;
 
 CREATE INDEX foo_id_idx ON foo (id);
 
-select * from foo where id = 123;
+select *
+from foo
+where id = 123;
 id  
 -----
  123
 
-select * from foo;
+select *
+from foo;
 ERROR:  A 'Sequential Scan' on foo has been detected.
-  - Run an EXPLAIN on your query to check the query plan.
-    - Make sure the query is compatible with the existing indexes.
+  - Run an
+EXPLAIN on your query to check the query plan. - Make sure the query is compatible
+with the existing indexes.
 
 select * from foo LIMIT 10 /* pg_no_seqscan_skip */;
 id 
@@ -107,15 +122,51 @@ id
 
 Notes:
 
-- as mentioned in the example, sequential scans will be ignored on any query that contains the following comment: `pg_no_seqscan_skip`
-- it's possible to override the settings in the current session by using `SET <setting_name> = <setting value>`, and to show them with `SHOW <setting_name>`. As a reminder settings are:
-  - `enable_seqscan`
-  - `jit_above_cost` 
-  - `pg_no_seqscan.check_databases`
-  - `pg_no_seqscan.check_schemas`
-  - `pg_no_seqscan.ignore_users`
-  - `pg_no_seqscan.ignore_tables`
-  - `pg_no_seqscan.level`
+- as mentioned in the example, sequential scans will be ignored on any query that contains the following comment:
+  `pg_no_seqscan_skip`
+- it's possible to override the settings in the current session by using `SET <setting_name> = <setting value>`, and to
+  show them with `SHOW <setting_name>`. As a reminder settings are:
+    - `enable_seqscan`
+    - `jit_above_cost` 
+    - `pg_no_seqscan.check_databases`
+    - `pg_no_seqscan.check_schemas`
+    - `pg_no_seqscan.ignore_users`
+    - `pg_no_seqscan.ignore_tables`
+    - `pg_no_seqscan.level`
+
+### Benchmark
+
+According to a basic benchmark, the overhead of pg_no_seqscan should not bother your CI response time:
+`docker exec -it benchmark pgbench -T300 -r postgres://postgres@localhost/postgres`
+
+| Without the extension                                                                                                              | With the extension                                                                                                                 |
+|------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------|
+| scaling factor: 1                                                                                                                  | scaling factor: 1                                                                                                                  |
+| query mode: simple                                                                                                                 | query mode: simple                                                                                                                 |
+| number of clients: 1                                                                                                               | number of clients: 1                                                                                                               |
+| number of threads: 1                                                                                                               | number of threads: 1                                                                                                               |
+| maximum number of tries: 1                                                                                                         | maximum number of tries: 1                                                                                                         |
+| duration: 300 s                                                                                                                    | duration: 300 s                                                                                                                    |
+| number of transactions actually processed: 357190                                                                                  | number of transactions actually processed: 344692                                                                                  |
+| number of failed transactions: 0 (0.000%)                                                                                          | number of failed transactions: 0 (0.000%)                                                                                          |
+| latency average = 0.840 ms                                                                                                         | latency average = 0.870 ms                                                                                                         |
+| initial connection time = 5.165 ms                                                                                                 | initial connection time = 5.159 ms                                                                                                 |
+| tps = 1190.651554 (without initial connection time)                                                                                | tps = 1148.989580 (without initial connection time)                                                                                |
+| statement latencies in milliseconds and failures:                                                                                  | statement latencies in milliseconds and failures:                                                                                  |
+| 0.001           0  \set aid random(1, 100000 * :scale)                                                                             | 0.001           0  \set aid random(1, 100000 * :scale)                                                                             |
+| 0.000           0  \set bid random(1, 1 * :scale)                                                                                  | 0.000           0  \set bid random(1, 1 * :scale)                                                                                  |
+| 0.000           0  \set tid random(1, 10 * :scale)                                                                                 | 0.000           0  \set tid random(1, 10 * :scale)                                                                                 |
+| 0.000           0  \set delta random(-5000, 5000)                                                                                  | 0.000           0  \set delta random(-5000, 5000)                                                                                  |
+| 0.040           0  BEGIN;                                                                                                          | 0.042           0  BEGIN;                                                                                                          |
+| 0.112           0  UPDATE pgbench_accounts SET abalance = abalance + :delta WHERE aid = :aid;                                      | 0.117           0  UPDATE pgbench_accounts SET abalance = abalance + :delta WHERE aid = :aid;                                      |
+| 0.081           0  SELECT abalance FROM pgbench_accounts WHERE aid = :aid;                                                         | 0.086           0  SELECT abalance FROM pgbench_accounts WHERE aid = :aid;                                                         |
+| 0.086           0  UPDATE pgbench_tellers SET tbalance = tbalance + :delta WHERE tid = :tid;                                       | 0.089           0  UPDATE pgbench_tellers SET tbalance = tbalance + :delta WHERE tid = :tid;                                       |
+| 0.081           0  UPDATE pgbench_branches SET bbalance = bbalance + :delta WHERE bid = :bid;                                      | 0.088           0  UPDATE pgbench_branches SET bbalance = bbalance + :delta WHERE bid = :bid;                                      |
+| 0.072           0  INSERT INTO pgbench_history (tid, bid, aid, delta, mtime) VALUES (:tid, :bid, :aid, :delta, CURRENT_TIMESTAMP); | 0.076           0  INSERT INTO pgbench_history (tid, bid, aid, delta, mtime) VALUES (:tid, :bid, :aid, :delta, CURRENT_TIMESTAMP); |
+| 0.364           0  END;                                                                                                            | 0.369           0  END;                                                                                                            |
+
+
+Note that performance could differ, when some of the pg_no_seqscan settings contain a long list of values.
 
 ## Motivation
 
@@ -130,28 +181,37 @@ In some cases sequential scans could be faster than index scans:
 
 - table is very small
 - the query needs to read a high percentage of the tuples of the table
-  In such situations, browsing an index will require to read both most of the index pages and most of the table pages, where an seq scan would directly fetch the appropriate tuples and be more efficient.
+  In such situations, browsing an index will require to read both most of the index pages and most of the table pages,
+  where an seq scan would directly fetch the appropriate tuples and be more efficient.
 
-In most of the other situations, sequential scan could be a symptom of a missing index. To filter the table, postgres has no other choice than filtering directly the rows in the table, and when the table is large, that could cause:
+In most of the other situations, sequential scan could be a symptom of a missing index. To filter the table, postgres
+has no other choice than filtering directly the rows in the table, and when the table is large, that could cause:
 
 - intensive I/Os
 - intensive CPU
 - slow query response time for the current query
 - slow query response time for other queries, as the database is consuming too many resources
 
-These issues can, in turn, affect the availability and responsiveness of production applications that rely on the database.
+These issues can, in turn, affect the availability and responsiveness of production applications that rely on the
+database.
 
 ### Looking for a strategy to prevent slow seqscan in production
 
-We have observed multiple instances where unintended `Seqscan` occurred in production, despite our efforts to prevent them. These incidents have highlighted the limitations of our current approaches to avoiding sequential scans.
+We have observed multiple instances where unintended `Seqscan` occurred in production, despite our efforts to prevent
+them. These incidents have highlighted the limitations of our current approaches to avoiding sequential scans.
 
-Training developers to avoid `Seqscan` in their SQL queries is an important step, but it is not sufficient to ensure that no `Seqscan` will occur in production. Here are several factors that could lead to seqscans:
+Training developers to avoid `Seqscan` in their SQL queries is an important step, but it is not sufficient to ensure
+that no `Seqscan` will occur in production. Here are several factors that could lead to seqscans:
 
-- Dataset: seqscans are expected locally as the data set is small. Having a local dataset that represents the production could be challenging (due to data volume and anonymization requirements) 
+- Dataset: seqscans are expected locally as the data set is small. Having a local dataset that represents the production
+  could be challenging (due to data volume and anonymization requirements) 
 - Lack of training
 - Application evolution (changing a filter or an ORDER BY clause for example)
 - Human errors
 
-Moreover, manually reviewing the query plans of every query running in production is not a realistic solution. This approach would be extremely time-consuming and difficult to maintain, especially in environments where thousands of different queries are executed daily.
+Moreover, manually reviewing the query plans of every query running in production is not a realistic solution. This
+approach would be extremely time-consuming and difficult to maintain, especially in environments where thousands of
+different queries are executed daily.
 
-For these reasons, it is crucial to implement automated and robust mechanisms to detect and prevent `Seqscan` in production. This will ensure optimal performance and minimize the risk of incidents related to sequential scans.
+For these reasons, it is crucial to implement automated and robust mechanisms to detect and prevent `Seqscan` in
+production. This will ensure optimal performance and minimize the risk of incidents related to sequential scans.
