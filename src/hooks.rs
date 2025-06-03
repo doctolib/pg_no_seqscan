@@ -178,10 +178,9 @@ Query: {}
 
 #[allow(deprecated)]
 impl PgHooks for NoSeqscanHooks {
-
     fn process_utility_hook(
         &mut self,
-        pstmt: PgBox<pg_sys::PlannedStmt>,
+        mut pstmt: PgBox<pg_sys::PlannedStmt>,
         query_string: &core::ffi::CStr,
         read_only_tree: Option<bool>,
         context: pg_sys::ProcessUtilityContext::Type,
@@ -206,7 +205,7 @@ impl PgHooks for NoSeqscanHooks {
             if is_explain_stmt {
                 unsafe {
                     HOOK_OPTION = Some(NoSeqscanHooks {
-                        is_explain_stmt: is_explain_stmt,
+                        is_explain_stmt,
                         tables_in_seqscans: Vec::new(),
                     });
                 };
@@ -250,7 +249,7 @@ impl PgHooks for NoSeqscanHooks {
                     if !is_explain_stmt && !self.is_ignored_user(unsafe { current_username() }) {
                         self.check_query(&query_desc);
                     }
-                },
+                }
                 _ => {}
             }
         }
