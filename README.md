@@ -110,28 +110,12 @@ Notes:
 - as mentioned in the example, sequential scans will be ignored on any query that contains the following comment: `pg_no_seqscan_skip`
 - it's possible to override the settings in the current session by using `SET <setting_name> = <setting value>`, and to show them with `SHOW <setting_name>`. As a reminder settings are:
   - `enable_seqscan`
-<<<<<<< HEAD
   - `jit_above_cost` 
-  - `pg_no_seqscan.check_databases`
-  - `pg_no_seqscan.ignored_schemas`
-  - `pg_no_seqscan.ignored_users`
-  - `pg_no_seqscan.level`
-=======
-  - `jit_above_cost`
-<<<<<<< HEAD
-  - `pg_no_seqscan_check_databases`
-  - `pg_no_seqscan_check_schemas`
-  - `pg_no_seqscan_ignore_users`
-  - `pg_no_seqscan_ignore_tables`
-  - `pg_no_seqscan_level`
->>>>>>> c6fa5fc (update option name (#53))
-=======
   - `pg_no_seqscan.check_databases`
   - `pg_no_seqscan.check_schemas`
   - `pg_no_seqscan.ignore_users`
   - `pg_no_seqscan.ignore_tables`
   - `pg_no_seqscan.level`
->>>>>>> 3187849 (Revert "chore: use only snake case for setting names" (#54))
 
 ## Motivation
 
