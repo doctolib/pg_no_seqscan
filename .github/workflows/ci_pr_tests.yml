@@ -12,7 +12,5 @@ jobs:
         run: pg-start ${{ matrix.pg }}
       - name: Check out the repo
         uses: actions/checkout@v4
-      - name: Setup Rust Cache
-        uses: Swatinem/rust-cache@v2
       - name: Test on PostgreSQL ${{ matrix.pg }}
         run: pgrx-build-test
