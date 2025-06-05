@@ -10,6 +10,7 @@ jobs:
         pg: [15]
     name: 🐘 PostgreSQL ${{ matrix.pg }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     container: pgxn/pgxn-tools
     steps:
       - name: Start PostgreSQL ${{ matrix.pg }}
