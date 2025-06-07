@@ -24,7 +24,7 @@ jobs:
         run: pg-start ${{ matrix.pg }}
       - name: Check out the repo - PG ${{ matrix.pg }}
         uses: actions/checkout@v4
-      - name: 🧪 Test on PG ${{ matrix.pg }}
+      - name: 🧪 Test - PG ${{ matrix.pg }}
         run: pgrx-build-test
       - name: 📎 Clippy - PG ${{ matrix.pg }}
         if: ${{ matrix.pg == '17' }}
