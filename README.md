@@ -56,6 +56,7 @@ enable_seqscan = 'off'                        # discourage seqscans
 jit_above_cost = 40000000000                  # avoids to use jit on each query, as the cost becomes much higher with
                                               # enable_seqscan off
 
+# Optional settings for pg_no_seqscan:
 #pg_no_seqscan.check_databases = ''           # Databases to check seqscan for, comma separated.
                                               # If empty, all databases will be checked.
 
@@ -90,47 +91,35 @@ If you need, uncomment these settings to use the value of your preference.
 ### pg_no_seqscan is now ready
 
 ```postgresql
-create table foo as (select generate_series(1, 10000) as id);
+CREATE TABLE foo AS (SELECT generate_series(1, 10000) AS id);
 
-select *
-from foo
-where id = 123;
+SELECT * FROM foo WHERE id = 123;
 ERROR:  A 'Sequential Scan' on foo has been detected.
   - Run an
 EXPLAIN on your query to check the query plan. - Make sure the query is compatible
 with the existing indexes.
 
-Query: select * from foo where id = 123;
+Query: SELECT * FROM foo WHERE id = 123;
 
 CREATE INDEX foo_id_idx ON foo (id);
 
-select *
-from foo
-where id = 123;
+SELECT * FROM foo WHERE id = 123;
 id  
 -----
  123
 
-select *
-from foo;
+SELECT * FROM foo LIMIT 3;
 ERROR:  A 'Sequential Scan' on foo has been detected.
   - Run an
 EXPLAIN on your query to check the query plan. - Make sure the query is compatible
 with the existing indexes.
 
-select * from foo LIMIT 10 /* pg_no_seqscan_skip */;
+SELECT * FROM foo LIMIT 3 /* pg_no_seqscan_skip */;
 id 
 ----
   1
   2
   3
-  4
-  5
-  6
-  7
-  8
-  9
- 10
 ```
 
 Notes:
