@@ -25,7 +25,10 @@ jobs:
       - name: Test on PostgreSQL ${{ matrix.pg }}
         run: pgrx-build-test
   format:
-    name: 🕵️ Rust static checks
+    strategy:
+      matrix:
+        pg: [ 15 ]
+    name: 🕵️ Rust static checks - PostgreSQL ${{ matrix.pg }}
     runs-on: ubuntu-latest
     container: pgxn/pgxn-tools
     steps:
