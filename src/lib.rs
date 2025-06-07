@@ -298,7 +298,7 @@ mod tests {
         }
     }
 
-    fn assert_seq_scan_error(query:&str, table_vec: Vec<String>) {
+    fn assert_seq_scan_error(query: &str, table_vec: Vec<String>) {
         assert!(panic::catch_unwind(|| Spi::run(query)).is_err());
         assert_seq_scan(table_vec);
     }
