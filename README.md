@@ -13,8 +13,8 @@ that could cause dramatic performance in production.
 
 - Using `enable_seqscan = off` to discourage PostgreSQL from using sequential scans and prefer an index, even if the
   table is empty
-- The extension parses the query plan and checks if there are any nodes with a sequential scan
-- If any are found, a notice message is shown or an exception is raised and the query fails (depending on the extension
+- The extension browses the query plan and checks if there are any nodes with a sequential scan
+- If any are found, a notice message is shown or the query is canceled and fails (depending on the extension
   settings)
 
 ## How to use it
