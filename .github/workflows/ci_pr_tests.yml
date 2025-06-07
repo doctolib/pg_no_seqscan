@@ -15,18 +15,18 @@ jobs:
     strategy:
       matrix:
         pg: [15]
-    name: 🐘 Tests - PostgreSQL ${{ matrix.pg }}
+    name: 🐘 Tests - PG ${{ matrix.pg }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     container: pgxn/pgxn-tools
     steps:
-      - name: Start - PostgreSQL ${{ matrix.pg }}
+      - name: Start - PG ${{ matrix.pg }}
         run: pg-start ${{ matrix.pg }}
-      - name: Check out the repo - PostgreSQL ${{ matrix.pg }}
+      - name: Check out the repo - PG ${{ matrix.pg }}
         uses: actions/checkout@v4
-      - name: 🧪 Test on PostgreSQL ${{ matrix.pg }}
+      - name: 🧪 Test on PG ${{ matrix.pg }}
         run: pgrx-build-test
-      - name: 📎 Clippy - PostgreSQL ${{ matrix.pg }}
+      - name: 📎 Clippy - PG ${{ matrix.pg }}
         run: cargo clippy --color always -- --deny warnings --allow unexpected-cfgs
   format:
     name: 🕵️ Format
