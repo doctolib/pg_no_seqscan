@@ -22,20 +22,15 @@ jobs:
         run: pg-start ${{ matrix.pg }}
       - name: Check out the repo
         uses: actions/checkout@v4
-      - name: Test on PostgreSQL ${{ matrix.pg }}
+      - name: 🧪 Test on PostgreSQL ${{ matrix.pg }}
         run: pgrx-build-test
+      - name: 📎 Clippy ${{ matrix.pg }}
+        run: cargo clippy --color always
   format:
-    strategy:
-      matrix:
-        pg: [ 15 ]
-    name: 🕵️ Rust static checks - PostgreSQL ${{ matrix.pg }}
+    name: 🕵️ Format
     runs-on: ubuntu-latest
     container: pgxn/pgxn-tools
     steps:
       - uses: actions/checkout@v4
       - name: 📖 Check format
         run: cargo --color always fmt --all -- --check
-      - name: Start PostgreSQL ${{ matrix.pg }}
-        run: pg-start ${{ matrix.pg }}
-      - name: 📎 Clippy
-        run: cargo clippy --color always
