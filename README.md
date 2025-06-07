@@ -204,16 +204,16 @@ According to a basic benchmark, the overhead of pg_no_seqscan should not bother 
 | tps (without initial connection time)                                                                                   | 1190.651554           | 1148.989580        |
 | statement latencies in milliseconds and failures:                                                                       |                       |                    |
 | `\set aid random(1, 100000 * :scale)`                                                                                   | 0.001                 | 0.001              |
-| `\set bid random(1, 1 * :scale) `                                                                                       | 0.000                 | 0.000              |
+| `\set bid random(1, 1 * :scale)`                                                                                        | 0.000                 | 0.000              |
 | `\set tid random(1, 10 * :scale)`                                                                                       | 0.000                 | 0.000              |
-| `\set delta random(-5000, 5000) `                                                                                       | 0.000                 | 0.000              |
-| `BEGIN;                         `                                                                                       | 0.040                 | 0.042              |
+| `\set delta random(-5000, 5000)`                                                                                        | 0.000                 | 0.000              |
+| `BEGIN;`                                                                                                                | 0.040                 | 0.042              |
 | `UPDATE pgbench_accounts`<br/>`SET abalance = abalance + :delta`<br/>`WHERE aid = :aid;`                                | 0.112                 | 0.117              |
-| `SELECT abalance`<br/>`FROM pgbench_accounts`<br/>`WHERE aid = :aid;                   `                                | 0.081                 | 0.086              |
-| `UPDATE pgbench_tellers`<br/>`SET tbalance = tbalance + :delta`<br/>`WHERE tid = :tid; `                                | 0.086                 | 0.089              |
+| `SELECT abalance`<br/>`FROM pgbench_accounts`<br/>`WHERE aid = :aid;`                                                   | 0.081                 | 0.086              |
+| `UPDATE pgbench_tellers`<br/>`SET tbalance = tbalance + :delta`<br/>`WHERE tid = :tid;`                                 | 0.086                 | 0.089              |
 | `UPDATE pgbench_branches`<br/>`SET bbalance = bbalance + :delta`<br/>`WHERE bid = :bid;`                                | 0.081                 | 0.088              |
 | `INSERT INTO pgbench_history (tid, bid, aid, delta, mtime)`<br/>`VALUES (:tid, :bid, :aid, :delta, CURRENT_TIMESTAMP);` | 0.072                 | 0.076              |
-| `END;                                                                                                           `       | 0.364                 | 0.369              |
+| `END;`                                                                                                                  | 0.364                 | 0.369              |
 
 Note that performance could differ:
 - when the query plans becomes more complex (but often the query execution is much longer)
