@@ -216,5 +216,5 @@ According to a basic benchmark, the overhead of pg_no_seqscan should not bother 
 | `END;`                                                                                                                  | 0.364                 | 0.369              |
 
 Note that performance could differ:
-- when the query plans becomes more complex (but often the query execution is much longer)
+- when the query plan becomes more complex (but often the query execution is much longer)
 - when some of the pg_no_seqscan settings contain a long list of values
