@@ -7,7 +7,7 @@ use pgrx::prelude::*;
 ::pgrx::pg_module_magic!();
 
 #[pg_guard]
-pub extern "C" fn _PG_init() {
+pub extern "C-unwind" fn _PG_init() {
     unsafe { hooks::init_hooks() };
     guc::register_gucs();
 }
