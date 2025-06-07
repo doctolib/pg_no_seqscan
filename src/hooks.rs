@@ -139,9 +139,9 @@ Query: {}
         }
 
         let seq_scan: &mut SeqScan = &mut *(node as *mut SeqScan);
-        #[cfg(not(any(feature = "pg12", feature = "pg13", feature = "pg14")))]
+        #[cfg(not(any(feature = "pg13", feature = "pg14")))]
         let table_oid = scanned_table(seq_scan.scan.scanrelid, rtables).unwrap();
-        #[cfg(any(feature = "pg12", feature = "pg13", feature = "pg14"))]
+        #[cfg(any(feature = "pg13", feature = "pg14"))]
         let table_oid = scanned_table(seq_scan.scanrelid, rtables).unwrap();
 
         if self.is_sequence(table_oid) {
@@ -253,7 +253,7 @@ impl PgHooks for NoSeqscanHooks {
                         self.check_query(&query_desc);
                     }
                 }
-                #[cfg(not(any(feature = "pg12", feature = "pg13", feature = "pg14")))]
+                #[cfg(not(any(feature = "pg13", feature = "pg14")))]
                 CmdType::CMD_MERGE => {
                     if !is_explain_stmt && !self.is_ignored_user(unsafe { current_username() }) {
                         self.check_query(&query_desc);
