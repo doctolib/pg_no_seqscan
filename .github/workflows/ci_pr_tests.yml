@@ -32,5 +32,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: 📖 Check format
         run: cargo --color always fmt --all -- --check
+      - name: Start PostgreSQL ${{ matrix.pg }}
+        run: pg-start ${{ matrix.pg }}
       - name: 📎 Clippy
         run: cargo clippy --color always
