@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         pg: [15]
-    name: 🐘 PostgreSQL ${{ matrix.pg }}
+    name: 🐘 Tests - PostgreSQL ${{ matrix.pg }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     container: pgxn/pgxn-tools
@@ -24,3 +24,13 @@ jobs:
         uses: actions/checkout@v4
       - name: Test on PostgreSQL ${{ matrix.pg }}
         run: pgrx-build-test
+  format:
+    name: 🕵️ Rust static checks
+    runs-on: ubuntu-latest
+    container: pgxn/pgxn-tools
+    steps:
+      - uses: actions/checkout@v4
+      - name: 📖 Check format
+        run: cargo --color always fmt --all -- --check
+      - name: 📎 Clippy
+        run: cargo clippy --color always
