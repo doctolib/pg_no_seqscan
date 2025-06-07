@@ -189,31 +189,31 @@ production. This will ensure optimal performance and minimize the risk of incide
 According to a basic benchmark, the overhead of pg_no_seqscan should not bother your CI response time:
 `docker exec -it benchmark pgbench -T300 -r postgres://postgres@localhost/postgres`
 
-|                                                                                                                   | Without the extension | With the extension |
-|-------------------------------------------------------------------------------------------------------------------|-----------------------|--------------------|
-| scaling factor                                                                                                    | 1                     | 1                  |
-| query mode                                                                                                        | simple                | simple             |
-| number of clients                                                                                                 | 1                     | 1                  |
-| number of threads                                                                                                 | 1                     | 1                  |
-| maximum number of tries                                                                                           | 1                     | 1                  |
-| duration                                                                                                          | 300 s                 | 300 s              |
-| number of transactions actually processed                                                                         | 357190                | 344692             |
-| number of failed transactions                                                                                     | 0 (0.000%)            | 0 (0.000%)         |
-| latency average                                                                                                   | 0.840 ms              | 0.870 ms           |
-| initial connection time                                                                                           | 5.165 ms              | 5.159 ms           |
-| tps (without initial connection time)                                                                             | 1190.651554           | 1148.989580        |
-| statement latencies in milliseconds and failures:                                                                 |                       |                    |
-| `\set aid random(1, 100000 * :scale)`                                                                             | 0.001                 | 0.001              |
-| `\set bid random(1, 1 * :scale)                                                                                 ` | 0.000                 | 0.000              |
-| `\set tid random(1, 10 * :scale)                                                                                ` | 0.000                 | 0.000              |
-| `\set delta random(-5000, 5000)                                                                                 ` | 0.000                 | 0.000              |
-| `BEGIN;                                                                                                         ` | 0.040                 | 0.042              |
-| `UPDATE pgbench_accounts SET abalance = abalance + :delta WHERE aid = :aid;                                     ` | 0.112                 | 0.117              |
-| `SELECT abalance FROM pgbench_accounts WHERE aid = :aid;                                                        ` | 0.081                 | 0.086              |
-| `UPDATE pgbench_tellers SET tbalance = tbalance + :delta WHERE tid = :tid;                                      ` | 0.086                 | 0.089              |
-| `UPDATE pgbench_branches SET bbalance = bbalance + :delta WHERE bid = :bid;                                     ` | 0.081                 | 0.088              |
-| `INSERT INTO pgbench_history (tid, bid, aid, delta, mtime) VALUES (:tid, :bid, :aid, :delta, CURRENT_TIMESTAMP);` | 0.072                 | 0.076              |
-| `END;                                                                                                           ` | 0.364                 | 0.369              |
+|                                                                                                                        | Without the extension | With the extension |
+|------------------------------------------------------------------------------------------------------------------------|-----------------------|--------------------|
+| scaling factor                                                                                                         | 1                     | 1                  |
+| query mode                                                                                                             | simple                | simple             |
+| number of clients                                                                                                      | 1                     | 1                  |
+| number of threads                                                                                                      | 1                     | 1                  |
+| maximum number of tries                                                                                                | 1                     | 1                  |
+| duration                                                                                                               | 300 s                 | 300 s              |
+| number of transactions actually processed                                                                              | 357190                | 344692             |
+| number of failed transactions                                                                                          | 0 (0.000%)            | 0 (0.000%)         |
+| latency average                                                                                                        | 0.840 ms              | 0.870 ms           |
+| initial connection time                                                                                                | 5.165 ms              | 5.159 ms           |
+| tps (without initial connection time)                                                                                  | 1190.651554           | 1148.989580        |
+| statement latencies in milliseconds and failures:                                                                      |                       |                    |
+| `\set aid random(1, 100000 * :scale)`                                                                                  | 0.001                 | 0.001              |
+| `\set bid random(1, 1 * :scale) `                                                                                      | 0.000                 | 0.000              |
+| `\set tid random(1, 10 * :scale)`                                                                                      | 0.000                 | 0.000              |
+| `\set delta random(-5000, 5000) `                                                                                      | 0.000                 | 0.000              |
+| `BEGIN;                         `                                                                                      | 0.040                 | 0.042              |
+| `UPDATE pgbench_accounts <br/>SET abalance = abalance + :delta <br/>WHERE aid = :aid;`                                 | 0.112                 | 0.117              |
+| `SELECT abalance <br/>FROM pgbench_accounts <br/>WHERE aid = :aid;                   `                                 | 0.081                 | 0.086              |
+| `UPDATE pgbench_tellers <br/>SET tbalance = tbalance + :delta <br/>WHERE tid = :tid; `                                 | 0.086                 | 0.089              |
+| `UPDATE pgbench_branches <br/>SET bbalance = bbalance + :delta <br/>WHERE bid = :bid;`                                 | 0.081                 | 0.088              |
+| `INSERT INTO pgbench_history (tid, bid, aid, delta, mtime) <br/>VALUES (:tid, :bid, :aid, :delta, CURRENT_TIMESTAMP);` | 0.072                 | 0.076              |
+| `END;                                                                                                           `      | 0.364                 | 0.369              |
 
 Note that performance could differ:
 - when the query plans becomes more complex (but often the query execution is much longer)
