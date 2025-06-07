@@ -1,3 +1,5 @@
+name: CI
+
 on:
   push:
     branches:
@@ -18,13 +20,13 @@ jobs:
     timeout-minutes: 30
     container: pgxn/pgxn-tools
     steps:
-      - name: Start PostgreSQL ${{ matrix.pg }}
+      - name: Start - PostgreSQL ${{ matrix.pg }}
         run: pg-start ${{ matrix.pg }}
-      - name: Check out the repo
+      - name: Check out the repo - PostgreSQL ${{ matrix.pg }}
         uses: actions/checkout@v4
       - name: 🧪 Test on PostgreSQL ${{ matrix.pg }}
         run: pgrx-build-test
-      - name: 📎 Clippy ${{ matrix.pg }}
+      - name: 📎 Clippy - PostgreSQL ${{ matrix.pg }}
         run: cargo clippy --color always
   format:
     name: 🕵️ Format
