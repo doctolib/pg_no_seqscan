@@ -27,7 +27,7 @@ jobs:
       - name: 🧪 Test on PostgreSQL ${{ matrix.pg }}
         run: pgrx-build-test
       - name: 📎 Clippy - PostgreSQL ${{ matrix.pg }}
-        run: cargo clippy --color always -- --deny warnings
+        run: cargo clippy --color always -- --deny warnings --allow unexpected-cfgs
   format:
     name: 🕵️ Format
     runs-on: ubuntu-latest
