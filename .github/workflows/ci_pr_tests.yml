@@ -3,6 +3,11 @@ on:
     branches:
       - main
   pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: ${{ github.ref_name != 'main' }}
+
 jobs:
   test:
     strategy:
