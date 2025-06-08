@@ -40,7 +40,7 @@ pub fn register_gucs() {
 
     GucRegistry::define_string_guc(
         "pg_no_seqscan.check_databases",
-        "List of databases to check seqscan for, comma separated",
+        "Databases to check seqscan for, comma separated",
         "If empty, all databases will be checked",
         &PG_NO_SEQSCAN_CHECK_DATABASES,
         GucContext::Suset,
@@ -49,8 +49,8 @@ pub fn register_gucs() {
 
     GucRegistry::define_string_guc(
         "pg_no_seqscan.check_schemas",
-        "List of schemas to check seqscan for, comma separated",
-        "",
+        "Schemas to check seqscan for, comma separated",
+        "If empty, all schemas will be checked",
         &PG_NO_SEQSCAN_CHECK_SCHEMAS,
         GucContext::Suset,
         GucFlags::SUPERUSER_ONLY,
@@ -58,8 +58,8 @@ pub fn register_gucs() {
 
     GucRegistry::define_string_guc(
         "pg_no_seqscan.check_tables",
-        "List of tables to check seqscan for, comma separated",
-        "If empty, pg_no_seqscan will check all tables",
+        "Tables to check seqscan for, comma separated",
+        "If empty, all tables will be checked",
         &PG_NO_SEQSCAN_CHECK_TABLES,
         GucContext::Suset,
         GucFlags::SUPERUSER_ONLY,
@@ -67,7 +67,7 @@ pub fn register_gucs() {
 
     GucRegistry::define_string_guc(
         "pg_no_seqscan.ignore_users",
-        "List of users to ignore, comma separated",
+        "Users to ignore, comma separated",
         "",
         &PG_NO_SEQSCAN_IGNORE_USERS,
         GucContext::Suset,
@@ -76,7 +76,7 @@ pub fn register_gucs() {
 
     GucRegistry::define_string_guc(
         "pg_no_seqscan.ignore_tables",
-        "List of tables to ignore, comma separated",
+        "Tables to ignore, comma separated",
         "This setting is ignored if some tables are declared in `check_tables`",
         &PG_NO_SEQSCAN_IGNORE_TABLES,
         GucContext::Suset,
