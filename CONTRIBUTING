@@ -11,13 +11,12 @@ Here are some hints to prepare your environment to contribute to the project:
 Pg_no_seqscan must be initialized in the extension's _PG_init() function, and can only be started if loaded through the
 shared_preload_libraries configuration setting.
 
-In order to use this bgworker with pgrx, you'll need to edit the proper postgresql.conf file
-in "${PGRX_HOME}/data-$PGVER/postgresql.conf" and add this line to the end:
+In order that all future workers answering queries use this extension, you'll need to edit the proper postgresql.conf file
+in "${PGRX_HOME}/data-$PGVER/postgresql.conf" and add this at the end of the file:
 
     shared_preload_libraries = 'pg_no_seqscan.so'
     jit_above_cost = 40000000000
     enable_seqscan = 'off'
-    # This could help to have logs with `tail -f ~/.pgrx/data-15/log/postgresql.log`
+    # Recommended to have logs with `tail -f ~/.pgrx/data-15/log/postgresql.log`
     logging_collector = on
     log_filename = 'postgresql.log'
-
