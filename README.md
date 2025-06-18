@@ -5,7 +5,7 @@ that could cause dramatic performance degradation in production.
 
 > ⚠️ Some important notes:
 > - This extension is not meant to be used in production.
-> - This extension is nota silver bullet, it only helps prevent performance degradation on queries due to undesirable sequential scans.
+> - This extension is not a silver bullet, it only helps prevent performance degradation on queries due to undesirable sequential scans.
 > - Sometimes a sequential scan is more efficient than an index scan.
 > - Having an index scan is not a guarantee of performance [(nice article on the topic)](https://www.pgmustard.com/blog/index-scan-doesnt-mean-its-fast)
 
