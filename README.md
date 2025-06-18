@@ -31,27 +31,23 @@ For now, you need to build the extension locally:
 `cargo build -r`
 That will generate the following files:
 
-- pg_no_seqscan.control
-- pg_no_seqscan.so
-- pg_no_seqscan--$VERSION.sql
+- control file: pg_no_seqscan.control
+- shared library file: pg_no_seqscan.so (linux) / pg_no_seqscan.dylib (mac os)
+- version file: pg_no_seqscan--$VERSION.sql
 
 ### Load and configure the extension in a local PG database
 
 1. check the share and pkglib directories of your favorite postgres database with:
 
 ```bash
-export PG_SHAREDIR=$(pg_config --sharedir)
-export PG_PKGLIBDIR=$(pg_config --pkglibdir)
+cargo pgrx install -c $(which pg_config)
 ```
 
-2. copy the generated files:
-    - pg_no_seqscan.so goes to `$PG_PKGLIBDIR` directory
-    - pg_no_seqscan.control goes to `$PG_SHAREDIR/extension` directory
-3. change the postgresql.conf (`show config_file` will tell you where it's located), and add:
+2. change the postgresql.conf (`show config_file` will tell you where it's located), and add:
 
 ```
 # Required settings for pg_no_seqscan:
-shared_preload_libraries = 'pg_no_seqscan.so' # load pg_no_seqscan extension
+shared_preload_libraries = 'pg_no_seqscan.so' # load pg_no_seqscan extension (or .dylib file on mac os)
 enable_seqscan = 'off'                        # discourage seqscans
 jit_above_cost = 40000000000                  # avoids to use jit on each query, as the cost becomes much higher with
                                               # enable_seqscan off
