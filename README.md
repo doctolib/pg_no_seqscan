@@ -1,18 +1,18 @@
 # pg_no_seqscan
 
-PG extension to prevent seqscan on dev environment. This can help in dev environment and CI to identify missing indexes
-that could cause dramatic performance in production.
+PG extension to prevent sequential scans on the development and CI environments. This can help in dev environment and CI to identify missing indexes
+that could cause dramatic performance degradation in production.
 
 > ⚠️ Some important notes:
 > - This extension is not meant to be used in production.
-> - This extension is not magic and will not detect all performance issues.
+> - This extension is not a silver bullet, it only helps prevent performance degradation on queries due to undesirable sequential scans.
 > - Sometimes a sequential scan is more efficient than an index scan.
 > - Having an index scan is not a guarantee of performance [(nice article on the topic)](https://www.pgmustard.com/blog/index-scan-doesnt-mean-its-fast)
 
 ## How it works
 
-- Using `enable_seqscan = off` to discourage PostgreSQL from using sequential scans and prefer an index, even if the
-  table is empty
+- Using `enable_seqscan = off` to discourage PostgreSQL from using sequential scans if other methods like an index are available, even if the
+ table is empty
 - The extension browses the query plan and checks if there are any nodes with a sequential scan
 - If any are found, a notice message is shown or the query is canceled and fails (depending on the extension
   settings)
