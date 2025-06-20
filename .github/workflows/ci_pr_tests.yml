@@ -23,7 +23,7 @@ jobs:
       - name: Start - PG ${{ matrix.pg }}
         run: pg-start ${{ matrix.pg }}
       - name: Check out the repo - PG ${{ matrix.pg }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
       - name: 🧪 Test - PG ${{ matrix.pg }}
         run: pgrx-build-test
       - name: 📎 Clippy - PG ${{ matrix.pg }}
@@ -34,6 +34,6 @@ jobs:
     runs-on: ubuntu-latest
     container: pgxn/pgxn-tools
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
       - name: 📖 Check format
         run: cargo --color always fmt --all -- --check
