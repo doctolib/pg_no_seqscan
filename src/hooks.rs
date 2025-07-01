@@ -175,7 +175,7 @@ Query: {}
     fn is_sequence(&self, relation_oid: Oid) -> bool {
         unsafe {
             let relation = PgRelation::open(relation_oid);
-            (*relation.rd_rel).relkind == (pg_sys::RELKIND_SEQUENCE as i8)
+            (*relation.rd_rel).relkind == (pg_sys::RELKIND_SEQUENCE as u8)
         }
     }
 }
