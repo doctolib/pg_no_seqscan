@@ -10,6 +10,9 @@ pub fn extract_comma_separated_setting(comma_separated_string: CString) -> Vec<S
         .map(|s| s.trim().to_string())
         .collect()
 }
+pub fn comma_separated_list_contains(comma_separated_string: CString, value: String) -> bool {
+    extract_comma_separated_setting(comma_separated_string).contains(&value)
+}
 
 pub unsafe fn string_from_ptr(ptr: *const c_char) -> Option<String> {
     match CStr::from_ptr(ptr).to_str() {

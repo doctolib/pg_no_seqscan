@@ -7,7 +7,7 @@ use regex::Regex;
 
 use crate::guc::DetectionLevelEnum;
 use crate::helpers::{
-    current_db_name, current_username, extract_comma_separated_setting, resolve_namespace_name,
+    comma_separated_list_contains, current_db_name, current_username, resolve_namespace_name,
     resolve_table_name, scanned_table,
 };
 use std::ffi::CStr;
@@ -81,10 +81,9 @@ Query: {}
 
     fn is_ignored_user(&mut self, current_user: String) -> bool {
         match guc::PG_NO_SEQSCAN_IGNORE_USERS.get() {
-            Some(ignore_users_setting) => extract_comma_separated_setting(ignore_users_setting)
-                .iter()
-                .find(|ignore_user| current_user == **ignore_user)
-                .is_some(),
+            Some(ignore_users_setting) => {
+                comma_separated_list_contains(ignore_users_setting, current_user)
+            }
             None => unreachable!(),
         }
     }
@@ -93,10 +92,7 @@ Query: {}
         match guc::PG_NO_SEQSCAN_CHECK_DATABASES.get() {
             Some(check_databases_setting) => {
                 check_databases_setting.is_empty()
-                    || extract_comma_separated_setting(check_databases_setting)
-                        .iter()
-                        .find(|check_database| database == **check_database)
-                        .is_some()
+                    || comma_separated_list_contains(check_databases_setting, database)
             }
             None => unreachable!(),
         }
@@ -106,10 +102,7 @@ Query: {}
         match guc::PG_NO_SEQSCAN_CHECK_SCHEMAS.get() {
             Some(check_schemas_setting) => {
                 check_schemas_setting.is_empty()
-                    || extract_comma_separated_setting(check_schemas_setting)
-                        .iter()
-                        .find(|check_schema: &&String| schema == **check_schema)
-                        .is_some()
+                    || comma_separated_list_contains(check_schemas_setting, schema)
             }
             None => unreachable!(),
         }
@@ -125,10 +118,7 @@ Query: {}
         match guc::PG_NO_SEQSCAN_CHECK_TABLES.get() {
             Some(check_tables_setting) => {
                 check_tables_setting.is_empty()
-                    || extract_comma_separated_setting(check_tables_setting)
-                        .iter()
-                        .find(|check_table| table_name == **check_table)
-                        .is_some()
+                    || comma_separated_list_contains(check_tables_setting, table_name)
             }
             None => unreachable!(),
         }
@@ -136,10 +126,9 @@ Query: {}
 
     fn is_ignored_table(&mut self, table_name: String) -> bool {
         match guc::PG_NO_SEQSCAN_IGNORE_TABLES.get() {
-            Some(ignore_tables_setting) => extract_comma_separated_setting(ignore_tables_setting)
-                .iter()
-                .find(|ignore_table| table_name == **ignore_table)
-                .is_some(),
+            Some(ignore_tables_setting) => {
+                comma_separated_list_contains(ignore_tables_setting, table_name)
+            }
             None => unreachable!(),
         }
     }
