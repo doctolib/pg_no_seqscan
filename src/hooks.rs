@@ -7,10 +7,11 @@ use regex::Regex;
 
 use crate::guc::DetectionLevelEnum;
 use crate::helpers::{
-    current_db_name, current_username, extract_comma_separated_setting, resolve_namespace_name,
+    comma_separated_list_contains, current_db_name, current_username, resolve_namespace_name,
     resolve_table_name, scanned_table,
 };
 use std::ffi::CStr;
+use std::os::raw::c_char;
 #[derive(Clone)]
 pub struct NoSeqscanHooks {
     pub is_explain_stmt: bool,
@@ -80,8 +81,9 @@ Query: {}
 
     fn is_ignored_user(&mut self, current_user: String) -> bool {
         match guc::PG_NO_SEQSCAN_IGNORE_USERS.get() {
-            Some(ignore_users_setting) => extract_comma_separated_setting(ignore_users_setting)
-                .any(|ignore_user| current_user == ignore_user),
+            Some(ignore_users_setting) => {
+                comma_separated_list_contains(ignore_users_setting, current_user)
+            }
             None => unreachable!(),
         }
     }
@@ -90,8 +92,7 @@ Query: {}
         match guc::PG_NO_SEQSCAN_CHECK_DATABASES.get() {
             Some(check_databases_setting) => {
                 check_databases_setting.is_empty()
-                    || extract_comma_separated_setting(check_databases_setting)
-                        .any(|check_database| database == check_database)
+                    || comma_separated_list_contains(check_databases_setting, database)
             }
             None => unreachable!(),
         }
@@ -101,8 +102,7 @@ Query: {}
         match guc::PG_NO_SEQSCAN_CHECK_SCHEMAS.get() {
             Some(check_schemas_setting) => {
                 check_schemas_setting.is_empty()
-                    || extract_comma_separated_setting(check_schemas_setting)
-                        .any(|check_schema| schema == check_schema)
+                    || comma_separated_list_contains(check_schemas_setting, schema)
             }
             None => unreachable!(),
         }
@@ -118,8 +118,7 @@ Query: {}
         match guc::PG_NO_SEQSCAN_CHECK_TABLES.get() {
             Some(check_tables_setting) => {
                 check_tables_setting.is_empty()
-                    || extract_comma_separated_setting(check_tables_setting)
-                        .any(|check_table| table_name == check_table)
+                    || comma_separated_list_contains(check_tables_setting, table_name)
             }
             None => unreachable!(),
         }
@@ -127,8 +126,9 @@ Query: {}
 
     fn is_ignored_table(&mut self, table_name: String) -> bool {
         match guc::PG_NO_SEQSCAN_IGNORE_TABLES.get() {
-            Some(ignore_tables_setting) => extract_comma_separated_setting(ignore_tables_setting)
-                .any(|ignore_table| table_name == ignore_table),
+            Some(ignore_tables_setting) => {
+                comma_separated_list_contains(ignore_tables_setting, table_name)
+            }
             None => unreachable!(),
         }
     }
@@ -175,7 +175,7 @@ Query: {}
     fn is_sequence(&self, relation_oid: Oid) -> bool {
         unsafe {
             let relation = PgRelation::open(relation_oid);
-            (*relation.rd_rel).relkind == (pg_sys::RELKIND_SEQUENCE as i8)
+            (*relation.rd_rel).relkind == (pg_sys::RELKIND_SEQUENCE as c_char)
         }
     }
 }
