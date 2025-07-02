@@ -1,7 +1,7 @@
 // Register the GUC parameters for the extension
 
 use pgrx::{GucContext, GucFlags, GucRegistry, GucSetting, PostgresGucEnum};
-use std::ffi::{CString};
+use std::ffi::CString;
 
 #[derive(PostgresGucEnum, Clone, Copy, PartialEq, Debug)]
 pub enum DetectionLevelEnum {
