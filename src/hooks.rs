@@ -11,6 +11,7 @@ use crate::helpers::{
     resolve_table_name, scanned_table,
 };
 use std::ffi::CStr;
+use std::os::raw::c_char;
 #[derive(Clone)]
 pub struct NoSeqscanHooks {
     pub is_explain_stmt: bool,
@@ -81,7 +82,7 @@ Query: {}
     fn is_ignored_user(&mut self, current_user: String) -> bool {
         match guc::PG_NO_SEQSCAN_IGNORE_USERS.get() {
             Some(ignore_users_setting) => extract_comma_separated_setting(ignore_users_setting)
-                .any(|ignore_user| current_user == ignore_user),
+                .iter().find(|ignore_user| current_user == **ignore_user).is_some(),
             None => unreachable!(),
         }
     }
@@ -91,7 +92,7 @@ Query: {}
             Some(check_databases_setting) => {
                 check_databases_setting.is_empty()
                     || extract_comma_separated_setting(check_databases_setting)
-                        .any(|check_database| database == check_database)
+                        .iter().find(|check_database| database == **check_database).is_some()
             }
             None => unreachable!(),
         }
@@ -102,7 +103,7 @@ Query: {}
             Some(check_schemas_setting) => {
                 check_schemas_setting.is_empty()
                     || extract_comma_separated_setting(check_schemas_setting)
-                        .any(|check_schema| schema == check_schema)
+                        .iter().find(|check_schema: &&String| schema == **check_schema).is_some()
             }
             None => unreachable!(),
         }
@@ -119,7 +120,7 @@ Query: {}
             Some(check_tables_setting) => {
                 check_tables_setting.is_empty()
                     || extract_comma_separated_setting(check_tables_setting)
-                        .any(|check_table| table_name == check_table)
+                        .iter().find(|check_table| table_name == **check_table).is_some()
             }
             None => unreachable!(),
         }
@@ -128,7 +129,7 @@ Query: {}
     fn is_ignored_table(&mut self, table_name: String) -> bool {
         match guc::PG_NO_SEQSCAN_IGNORE_TABLES.get() {
             Some(ignore_tables_setting) => extract_comma_separated_setting(ignore_tables_setting)
-                .any(|ignore_table| table_name == ignore_table),
+                .iter().find(|ignore_table| table_name == **ignore_table).is_some(),
             None => unreachable!(),
         }
     }
@@ -175,7 +176,7 @@ Query: {}
     fn is_sequence(&self, relation_oid: Oid) -> bool {
         unsafe {
             let relation = PgRelation::open(relation_oid);
-            (*relation.rd_rel).relkind == (pg_sys::RELKIND_SEQUENCE as u8)
+            (*relation.rd_rel).relkind == (pg_sys::RELKIND_SEQUENCE as c_char)
         }
     }
 }

@@ -1,9 +1,14 @@
 use pgrx::pg_sys;
 use pgrx::pg_sys::{get_namespace_name, get_rel_name, get_rel_namespace, rt_fetch, List, Oid};
-use std::ffi::{c_char, CStr};
+use std::ffi::{c_char, CStr, CString};
 
-pub fn extract_comma_separated_setting(comma_separated_string: &CStr) -> std::str::Split<'_, char> {
-    comma_separated_string.to_str().unwrap().split(',')
+pub fn extract_comma_separated_setting(comma_separated_string: CString) -> Vec<String> {
+    comma_separated_string
+        .to_str()
+        .unwrap()
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .collect()
 }
 
 pub unsafe fn string_from_ptr(ptr: *const c_char) -> Option<String> {
