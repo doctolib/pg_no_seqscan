@@ -20,7 +20,7 @@ pg17 = ["pgrx/pg17", "pgrx-tests/pg17" ]
 pg_test = []
 
 [dependencies]
-pgrx = "=0.15.0"
+pgrx = "=0.16.1"
 regex = "1.11.1"
 
 [dev-dependencies]
