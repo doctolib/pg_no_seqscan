@@ -24,7 +24,7 @@ pgrx = "=0.15.0"
 regex = "1.11.1"
 
 [dev-dependencies]
-pgrx-tests = "=0.15.0"
+pgrx-tests = "=0.16.1"
 
 [profile.dev]
 panic = "unwind"
