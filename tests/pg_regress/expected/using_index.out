@@ -1,0 +1,19 @@
+-- Test that indexed queries don't trigger errors
+SET pg_no_seqscan.level = ERROR;
+CREATE TABLE test_pk (id bigint PRIMARY KEY);
+INSERT INTO test_pk SELECT generate_series(1,10);
+-- Query by primary key should not error
+EXPLAIN SELECT * FROM test_pk WHERE id=1;
+                                   QUERY PLAN                                    
+---------------------------------------------------------------------------------
+ Index Only Scan using test_pk_pkey on test_pk  (cost=0.15..8.17 rows=1 width=8)
+   Index Cond: (id = 1)
+(2 rows)
+
+SELECT * FROM test_pk WHERE id=1;
+ id 
+----
+  1
+(1 row)
+
+DROP TABLE test_pk;

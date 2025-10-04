@@ -1,0 +1,48 @@
+-- Test database filtering
+SET pg_no_seqscan.level = ERROR;
+CREATE TABLE test_db AS (SELECT * FROM generate_series(1,10) as id);
+EXPLAIN SELECT * FROM test_db;
+                        QUERY PLAN                         
+-----------------------------------------------------------
+ Seq Scan on test_db  (cost=0.00..35.50 rows=2550 width=4)
+(1 row)
+
+-- Empty check_databases should check all databases
+SET pg_no_seqscan.check_databases = '';
+SELECT * FROM test_db; -- Should error
+ERROR:  A 'Sequential Scan' on test_db has been detected.
+  - Run an EXPLAIN on your query to check the query plan.
+  - Make sure the query is compatible with the existing indexes.
+
+Query: SELECT * FROM test_db;
+
+-- Non-matching database should be ignored
+-- Note: regress tests run in database named 'contrib_regression' or similar
+SET pg_no_seqscan.check_databases = 'postgres';
+SELECT * FROM test_db; -- Should pass
+ id 
+----
+  1
+  2
+  3
+  4
+  5
+  6
+  7
+  8
+  9
+ 10
+(10 rows)
+
+-- Matching database should be checked
+-- Note: pg_regress uses 'pg_no_seqscan_regress' as database name
+SET pg_no_seqscan.check_databases = 'pg_no_seqscan_regress';
+SELECT * FROM test_db; -- Should error
+ERROR:  A 'Sequential Scan' on test_db has been detected.
+  - Run an EXPLAIN on your query to check the query plan.
+  - Make sure the query is compatible with the existing indexes.
+
+Query: SELECT * FROM test_db;
+
+-- Cleanup
+DROP TABLE test_db;

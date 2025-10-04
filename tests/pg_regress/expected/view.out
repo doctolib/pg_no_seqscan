@@ -1,0 +1,20 @@
+-- Test view detection
+SET pg_no_seqscan.level = ERROR;
+CREATE TABLE test_view_table AS (SELECT * FROM generate_series(1,10) as id);
+ERROR:  relation "test_view_table" already exists
+CREATE VIEW test_view AS SELECT * FROM test_view_table;
+ERROR:  relation "test_view" already exists
+-- Test querying view
+EXPLAIN SELECT * FROM test_view;
+                            QUERY PLAN                             
+-------------------------------------------------------------------
+ Seq Scan on test_view_table  (cost=0.00..35.50 rows=2550 width=4)
+(1 row)
+
+SELECT * FROM test_view;
+ERROR:  A 'Sequential Scan' on test_view_table has been detected.
+  - Run an EXPLAIN on your query to check the query plan.
+  - Make sure the query is compatible with the existing indexes.
+
+Query: SELECT * FROM test_view;
+

@@ -1,0 +1,19 @@
+-- Test CTE detection
+SET pg_no_seqscan.level = ERROR;
+CREATE TABLE test_cte AS (SELECT * FROM generate_series(1,10) as id);
+-- Test CTE
+EXPLAIN WITH cte AS (SELECT * FROM test_cte) SELECT * FROM cte;
+                         QUERY PLAN                         
+------------------------------------------------------------
+ Seq Scan on test_cte  (cost=0.00..35.50 rows=2550 width=4)
+(1 row)
+
+WITH cte AS (SELECT * FROM test_cte) SELECT * FROM cte;
+ERROR:  A 'Sequential Scan' on test_cte has been detected.
+  - Run an EXPLAIN on your query to check the query plan.
+  - Make sure the query is compatible with the existing indexes.
+
+Query: WITH cte AS (SELECT * FROM test_cte) SELECT * FROM cte;
+
+-- Cleanup
+DROP TABLE test_cte;
