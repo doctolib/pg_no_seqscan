@@ -1,10 +1,10 @@
 use crate::guc;
 use pgrx::pg_sys::{
-    Append, BitmapAnd, BitmapOr, CmdType, DestReceiver, List, MergeAppend,
-    NodeTag::T_Append, NodeTag::T_BitmapAnd, NodeTag::T_BitmapOr, NodeTag::T_MergeAppend
-    , NodeTag::T_SeqScan, NodeTag::T_SubqueryScan, Oid, ParamListInfo,
+    Append, CmdType, DestReceiver, List,
+    NodeTag::T_Append
+    , NodeTag::T_SeqScan, Oid, ParamListInfo,
     Plan, PlannedStmt, ProcessUtilityContext, QueryCompletion, QueryDesc, QueryEnvironment,
-    SeqScan, SubqueryScan,
+    SeqScan,
 };
 use pgrx::{error, notice, pg_guard, pg_sys, PgBox, PgRelation};
 use regex::Regex;
@@ -51,25 +51,9 @@ impl NoSeqscanHooks {
 
             // Handle nodes with subplan lists
             match node.type_ {
-                T_Append => {
+                T_Append => {   
                     let append_node = &*(plan as *mut Append);
                     self.check_subplan_list(append_node.appendplans, rtables);
-                }
-                T_MergeAppend => {
-                    let merge_append_node = &*(plan as *mut MergeAppend);
-                    self.check_subplan_list(merge_append_node.mergeplans, rtables);
-                }
-                T_BitmapAnd => {
-                    let bitmap_and_node = &*(plan as *mut BitmapAnd);
-                    self.check_subplan_list(bitmap_and_node.bitmapplans, rtables);
-                }
-                T_BitmapOr => {
-                    let bitmap_or_node = &*(plan as *mut BitmapOr);
-                    self.check_subplan_list(bitmap_or_node.bitmapplans, rtables);
-                }
-                T_SubqueryScan => {
-                    let subquery_scan_node = &*(plan as *mut SubqueryScan);
-                    self.check_plan_recursively(subquery_scan_node.subplan, rtables);
                 }
                 _ => {}
             }
