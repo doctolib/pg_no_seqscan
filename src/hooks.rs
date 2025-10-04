@@ -262,6 +262,7 @@ pub unsafe fn init_hooks() {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     #[pg_guard]
     unsafe extern "C-unwind" fn process_utility_hook(
         pstmt: *mut PlannedStmt,
