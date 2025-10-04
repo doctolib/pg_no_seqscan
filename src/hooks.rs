@@ -1,8 +1,10 @@
 use crate::guc;
-use pgrx::pg_sys::{CmdType, List, NodeTag::T_SeqScan, Oid, Plan, QueryDesc, SeqScan};
-use pgrx::{error, notice, pg_sys, PgBox, PgRelation};
+use pgrx::pg_sys::{
+    CmdType, DestReceiver, List, NodeTag::T_SeqScan, Oid, ParamListInfo, Plan, PlannedStmt,
+    ProcessUtilityContext, QueryCompletion, QueryDesc, QueryEnvironment, SeqScan,
+};
+use pgrx::{error, notice, pg_guard, pg_sys, PgBox, PgRelation};
 #[allow(deprecated)]
-use pgrx::{register_hook, HookResult, PgHooks};
 use regex::Regex;
 
 use crate::guc::DetectionLevelEnum;
@@ -10,8 +12,10 @@ use crate::helpers::{
     comma_separated_list_contains, current_db_name, current_username, resolve_namespace_name,
     resolve_table_name, scanned_table,
 };
+use pgrx::pg_sys::ffi::pg_guard_ffi_boundary;
 use std::ffi::CStr;
 use std::os::raw::c_char;
+
 #[derive(Clone)]
 pub struct NoSeqscanHooks {
     pub is_explain_stmt: bool,
@@ -178,91 +182,48 @@ Query: {}
             (*relation.rd_rel).relkind == (pg_sys::RELKIND_SEQUENCE as c_char)
         }
     }
-}
 
-#[allow(deprecated)]
-impl PgHooks for NoSeqscanHooks {
-    fn process_utility_hook(
-        &mut self,
-        mut pstmt: PgBox<pg_sys::PlannedStmt>,
-        query_string: &core::ffi::CStr,
-        read_only_tree: Option<bool>,
-        context: pg_sys::ProcessUtilityContext::Type,
-        params: PgBox<pg_sys::ParamListInfoData>,
-        query_env: PgBox<pg_sys::QueryEnvironment>,
-        dest: PgBox<pg_sys::DestReceiver>,
-        completion_tag: *mut pg_sys::QueryCompletion,
-        prev_hook: fn(
-            pstmt: PgBox<pg_sys::PlannedStmt>,
-            query_string: &core::ffi::CStr,
-            read_only_tree: Option<bool>,
-            context: pg_sys::ProcessUtilityContext::Type,
-            params: PgBox<pg_sys::ParamListInfoData>,
-            query_env: PgBox<pg_sys::QueryEnvironment>,
-            dest: PgBox<pg_sys::DestReceiver>,
-            completion_tag: *mut pg_sys::QueryCompletion,
-        ) -> HookResult<()>,
-    ) -> HookResult<()> {
-        if guc::PG_NO_SEQSCAN_LEVEL.get() != DetectionLevelEnum::Off {
-            let node: &mut pg_sys::Node = unsafe { &mut *(pstmt.utilityStmt) };
-            let is_explain_stmt = node.type_ == pg_sys::NodeTag::T_ExplainStmt;
-            if is_explain_stmt {
-                unsafe {
-                    HOOK_OPTION = Some(NoSeqscanHooks {
-                        is_explain_stmt,
-                        tables_in_seqscans: Vec::new(),
-                    });
-                };
-            }
+    fn reset_tables_and_stmt_type(&mut self, mut pstmt: PgBox<pg_sys::PlannedStmt>) {
+        let node: &mut pg_sys::Node = unsafe { &mut *(pstmt.utilityStmt) };
+        let is_explain_stmt = node.type_ == pg_sys::NodeTag::T_ExplainStmt;
+        if is_explain_stmt {
+            unsafe {
+                HOOK_OPTION = Some(NoSeqscanHooks {
+                    is_explain_stmt,
+                    tables_in_seqscans: Vec::new(),
+                });
+            };
         }
-        prev_hook(
-            pstmt,
-            query_string,
-            read_only_tree,
-            context,
-            params,
-            query_env,
-            dest,
-            completion_tag,
-        )
     }
 
     #[allow(static_mut_refs)]
-    fn executor_start(
-        &mut self,
-        query_desc: PgBox<QueryDesc>,
-        eflags: i32,
-        prev_hook: fn(query_desc: PgBox<QueryDesc>, eflags: i32) -> HookResult<()>,
-    ) -> HookResult<()> {
-        if guc::PG_NO_SEQSCAN_LEVEL.get() != DetectionLevelEnum::Off {
-            let is_explain_stmt = unsafe { HOOK_OPTION.as_ref().unwrap().is_explain_stmt };
-            // reset hook state
-            unsafe {
-                HOOK_OPTION = Some(NoSeqscanHooks {
-                    is_explain_stmt: false,
-                    tables_in_seqscans: Vec::new(),
-                });
-            }
-
-            match query_desc.operation {
-                CmdType::CMD_SELECT
-                | CmdType::CMD_UPDATE
-                | CmdType::CMD_INSERT
-                | CmdType::CMD_DELETE => {
-                    if !is_explain_stmt && !self.is_ignored_user(unsafe { current_username() }) {
-                        self.check_query(&query_desc);
-                    }
-                }
-                #[cfg(not(any(feature = "pg13", feature = "pg14")))]
-                CmdType::CMD_MERGE => {
-                    if !is_explain_stmt && !self.is_ignored_user(unsafe { current_username() }) {
-                        self.check_query(&query_desc);
-                    }
-                }
-                _ => {}
-            }
+    fn check_query_plan(&mut self, query_desc: PgBox<QueryDesc>) {
+        let is_explain_stmt = unsafe { HOOK_OPTION.as_ref().unwrap().is_explain_stmt };
+        // reset hook state
+        unsafe {
+            HOOK_OPTION = Some(NoSeqscanHooks {
+                is_explain_stmt: false,
+                tables_in_seqscans: Vec::new(),
+            });
         }
-        prev_hook(query_desc, eflags)
+
+        match query_desc.operation {
+            CmdType::CMD_SELECT
+            | CmdType::CMD_UPDATE
+            | CmdType::CMD_INSERT
+            | CmdType::CMD_DELETE => {
+                if !is_explain_stmt && !self.is_ignored_user(unsafe { current_username() }) {
+                    self.check_query(&query_desc);
+                }
+            }
+            #[cfg(not(any(feature = "pg13", feature = "pg14")))]
+            CmdType::CMD_MERGE => {
+                if !is_explain_stmt && !self.is_ignored_user(unsafe { current_username() }) {
+                    self.check_query(&query_desc);
+                }
+            }
+            _ => {}
+        }
     }
 }
 
@@ -274,5 +235,74 @@ pub unsafe fn init_hooks() {
         is_explain_stmt: false,
         tables_in_seqscans: Vec::new(),
     });
-    register_hook(HOOK_OPTION.as_mut().unwrap())
+
+    static mut PREV_EXECUTOR_START: pg_sys::ExecutorStart_hook_type = None;
+    PREV_EXECUTOR_START = pg_sys::ExecutorStart_hook;
+    pg_sys::ExecutorStart_hook = Some(executor_start_hook);
+
+    static mut PREV_PROCESS_UTILITY: pg_sys::ProcessUtility_hook_type = None;
+    PREV_PROCESS_UTILITY = pg_sys::ProcessUtility_hook;
+    pg_sys::ProcessUtility_hook = Some(process_utility_hook);
+
+    #[pg_guard]
+    unsafe extern "C-unwind" fn executor_start_hook(
+        query_desc: *mut QueryDesc,
+        eflags: ::core::ffi::c_int,
+    ) {
+        if guc::PG_NO_SEQSCAN_LEVEL.get() != DetectionLevelEnum::Off {
+            HOOK_OPTION
+                .as_mut()
+                .unwrap()
+                .check_query_plan(PgBox::from_pg(query_desc));
+        }
+        if let Some(prev_hook) = PREV_EXECUTOR_START {
+            pg_guard_ffi_boundary(|| prev_hook(query_desc, eflags));
+        } else {
+            pg_sys::standard_ExecutorStart(query_desc, eflags);
+        }
+    }
+
+    #[pg_guard]
+    unsafe extern "C-unwind" fn process_utility_hook(
+        pstmt: *mut PlannedStmt,
+        query_string: *const ::core::ffi::c_char,
+        read_only_tree: bool,
+        context: ProcessUtilityContext::Type,
+        params: ParamListInfo,
+        query_env: *mut QueryEnvironment,
+        dest: *mut DestReceiver,
+        qc: *mut QueryCompletion,
+    ) {
+        if guc::PG_NO_SEQSCAN_LEVEL.get() != DetectionLevelEnum::Off {
+            HOOK_OPTION
+                .as_mut()
+                .unwrap()
+                .reset_tables_and_stmt_type(PgBox::from_pg(pstmt));
+        }
+        if let Some(prev_hook) = PREV_PROCESS_UTILITY {
+            pg_guard_ffi_boundary(|| {
+                prev_hook(
+                    pstmt,
+                    query_string,
+                    read_only_tree,
+                    context,
+                    params,
+                    query_env,
+                    dest,
+                    qc,
+                )
+            });
+        } else {
+            pg_sys::standard_ProcessUtility(
+                pstmt,
+                query_string,
+                read_only_tree,
+                context,
+                params,
+                query_env,
+                dest,
+                qc,
+            )
+        }
+    }
 }

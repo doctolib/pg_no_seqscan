@@ -8,8 +8,8 @@ use pgrx::prelude::*;
 
 #[pg_guard]
 pub extern "C-unwind" fn _PG_init() {
-    unsafe { hooks::init_hooks() };
     guc::register_gucs();
+    unsafe { hooks::init_hooks() };
 }
 
 #[cfg(any(test, feature = "pg_test"))]
@@ -21,7 +21,7 @@ mod tests {
     use std::panic;
 
     #[pg_test]
-    fn check_only_schemas_in_settings() {
+    fn test_check_only_schemas_in_settings() {
         set_pg_no_seqscan_level(DetectionLevelEnum::Error);
 
         Spi::run(
@@ -47,7 +47,7 @@ mod tests {
     }
 
     #[pg_test]
-    fn ignores_on_seqscan_when_level_off() {
+    fn test_ignores_on_seqscan_when_level_off() {
         set_pg_no_seqscan_level(DetectionLevelEnum::Off);
 
         Spi::run("create table foo as (select * from generate_series(1,10) as id);")
@@ -59,7 +59,7 @@ mod tests {
     }
 
     #[pg_test]
-    fn panics_on_seqscan_when_level_error() {
+    fn test_panics_on_seqscan_when_level_error() {
         set_pg_no_seqscan_level(DetectionLevelEnum::Error);
 
         Spi::run("create table foo as (select * from generate_series(1,10) as id);")
@@ -68,7 +68,7 @@ mod tests {
     }
 
     #[pg_test]
-    fn warns_on_seqscan_when_level_warn() {
+    fn test_warns_on_seqscan_when_level_warn() {
         set_pg_no_seqscan_level(DetectionLevelEnum::Warn);
 
         Spi::run("create table foo as (select * from generate_series(1,10) as id);")
@@ -79,7 +79,7 @@ mod tests {
     }
 
     #[pg_test]
-    fn detects_seqscan_on_multiple_selects() {
+    fn test_detects_seqscan_on_multiple_selects() {
         set_pg_no_seqscan_level(DetectionLevelEnum::Error);
         Spi::run(
             "create table foo as (select * from generate_series(1,10) as id);
@@ -92,7 +92,7 @@ mod tests {
     }
 
     #[pg_test]
-    fn ignores_seqscan_on_query_with_ignore_comment() {
+    fn test_ignores_seqscan_on_query_with_ignore_comment() {
         set_pg_no_seqscan_level(DetectionLevelEnum::Error);
         Spi::run("create table foo as (select * from generate_series(1,10) as id);")
             .expect("Setup failed");
@@ -103,7 +103,7 @@ mod tests {
     }
 
     #[pg_test]
-    fn ignores_on_seqscan_when_explain() {
+    fn test_ignores_on_seqscan_when_explain() {
         set_pg_no_seqscan_level(DetectionLevelEnum::Error);
         Spi::run("create table foo as (select * from generate_series(1,10) as id);")
             .expect("Setup failed");
@@ -112,7 +112,7 @@ mod tests {
     }
 
     #[pg_test]
-    fn ignores_on_seqscan_when_explain_analyze() {
+    fn test_ignores_on_seqscan_when_explain_analyze() {
         set_pg_no_seqscan_level(DetectionLevelEnum::Error);
         Spi::run("create table foo as (select * from generate_series(1,10) as id);")
             .expect("Setup failed");
@@ -122,7 +122,7 @@ mod tests {
     }
 
     #[pg_test]
-    fn ignores_on_ignore_users() {
+    fn test_ignores_on_ignore_users() {
         Spi::run("create table foo as (select * from generate_series(1,10) as id);")
             .expect("Setup failed");
 
@@ -141,7 +141,7 @@ mod tests {
     }
 
     #[pg_test]
-    fn ignores_on_ignore_tables() {
+    fn test_ignores_on_ignore_tables() {
         Spi::run(
             "create table foo as (select * from generate_series(1,10) as id);
             create table bar as (select * from generate_series(1,10) as id);
@@ -159,7 +159,7 @@ mod tests {
     }
 
     #[pg_test]
-    fn checks_on_check_tables() {
+    fn test_checks_on_check_tables() {
         Spi::run(
             "create table foo as (select * from generate_series(1,10) as id);
             create table bar as (select * from generate_series(1,10) as id);
@@ -177,7 +177,7 @@ mod tests {
     }
 
     #[pg_test]
-    fn ignores_ignore_tables_option_if_check_tables_option_is_set() {
+    fn test_ignores_ignore_tables_option_if_check_tables_option_is_set() {
         Spi::run(
             "create table foo as (select * from generate_series(1,10) as id);
             create table bar as (select * from generate_series(1,10) as id);
@@ -198,7 +198,7 @@ mod tests {
     }
 
     #[pg_test]
-    fn check_all_databases_when_check_database_is_not_defined() {
+    fn test_check_all_databases_when_check_database_is_not_defined() {
         Spi::run("create table foo as (select * from generate_series(1,10) as id);")
             .expect("Setup failed");
 
@@ -207,7 +207,7 @@ mod tests {
     }
 
     #[pg_test]
-    fn ignores_seqscan_on_db_not_defined_in_check_databases() {
+    fn test_ignores_seqscan_on_db_not_defined_in_check_databases() {
         Spi::run("create table foo as (select * from generate_series(1,10) as id);")
             .expect("Setup failed");
 
@@ -218,7 +218,7 @@ mod tests {
     }
 
     #[pg_test]
-    fn detects_seqscan_on_db_defined_in_check_databases() {
+    fn test_detects_seqscan_on_db_defined_in_check_databases() {
         Spi::run("create table foo as (select * from generate_series(1,10) as id);")
             .expect("Setup failed");
 
@@ -236,7 +236,7 @@ mod tests {
     }
 
     #[pg_test]
-    fn detects_seqscan_after_explain_analyze() {
+    fn test_detects_seqscan_after_explain_analyze() {
         set_pg_no_seqscan_level(DetectionLevelEnum::Error);
         Spi::run("create table foo as (select * from generate_series(1,10) as id);")
             .expect("Setup failed");
@@ -247,7 +247,7 @@ mod tests {
     }
 
     #[pg_test]
-    fn does_nothing_when_query_by_pk() {
+    fn test_does_nothing_when_query_by_pk() {
         set_pg_no_seqscan_level(DetectionLevelEnum::Error);
         Spi::run(
             "create table foo (id bigint PRIMARY KEY);
@@ -261,7 +261,7 @@ mod tests {
     }
 
     #[pg_test]
-    fn does_nothing_when_querying_a_sequence() {
+    fn test_does_nothing_when_querying_a_sequence() {
         set_pg_no_seqscan_level(DetectionLevelEnum::Error);
         Spi::run("CREATE SEQUENCE foo_seq;").expect("Setup failed");
 
