@@ -8,8 +8,8 @@ use regex::Regex;
 
 use crate::guc::DetectionLevelEnum;
 use crate::helpers::{
-    comma_separated_list_contains, current_db_name, current_username, resolve_namespace_name,
-    resolve_table_name, scanned_table,
+    comma_separated_list_contains, current_db_name, current_username, get_parent_table_oid,
+    resolve_namespace_name, resolve_table_name, scanned_table,
 };
 use pgrx::pg_sys::ffi::pg_guard_ffi_boundary;
 use std::ffi::CStr;
@@ -162,17 +162,25 @@ Query: {}
             return;
         }
 
-        let table_name = resolve_table_name(table_oid).expect("Failed to resolve table name");
+        // Check if this table is a partition, and if so, use the parent table name
+        let report_table_name = if let Some(parent_oid) = get_parent_table_oid(table_oid) {
+            let parent_name =
+                resolve_table_name(parent_oid).expect("Failed to resolve parent table name");
+            parent_name
+        } else {
+            let table_name = resolve_table_name(table_oid).expect("Failed to resolve table name");
+            table_name
+        };
 
-        if !self.is_checked_table(table_name.clone()) {
+        if !self.is_checked_table(report_table_name.clone()) {
             return;
         }
 
-        if !self.check_tables_options_is_set() && self.is_ignored_table(table_name.clone()) {
+        if !self.check_tables_options_is_set() && self.is_ignored_table(report_table_name.clone()) {
             return;
         }
 
-        self.tables_in_seqscans.push(table_name.clone());
+        self.tables_in_seqscans.push(report_table_name.clone());
     }
 
     fn is_sequence(&self, relation_oid: Oid) -> bool {

@@ -198,6 +198,22 @@ mod tests {
     }
 
     #[pg_test]
+    fn test_checks_on_partitioned_table_in_check_tables() {
+        Spi::run(
+            "CREATE TABLE partitioned_foo (id bigint) PARTITION BY RANGE (id);
+            CREATE TABLE partitioned_foo_1 PARTITION OF partitioned_foo FOR VALUES FROM (1) TO (5);
+            CREATE TABLE partitioned_foo_2 PARTITION OF partitioned_foo FOR VALUES FROM (5) TO (11);
+            ",
+        )
+        .expect("Setup failed");
+
+        Spi::run("SET pg_no_seqscan.check_tables = 'partitioned_foo'")
+            .expect("Unable to set check_tables");
+
+        assert_seq_scan_error("select * from partitioned_foo_1;", vec!["partitioned_foo".to_string()]);
+    }
+
+    #[pg_test]
     fn test_check_all_databases_when_check_database_is_not_defined() {
         Spi::run("create table foo as (select * from generate_series(1,10) as id);")
             .expect("Setup failed");
