@@ -1,5 +1,5 @@
 -- Test schema filtering
-
+LOAD 'pg_no_seqscan';
 SET pg_no_seqscan.level = ERROR;
 
 CREATE SCHEMA test_schema1;
@@ -20,3 +20,4 @@ SELECT * FROM test_schema1.foo;
 -- Cleanup
 DROP TABLE test_schema1.foo, test_schema2.bar, public.baz;
 DROP SCHEMA test_schema1, test_schema2;
+RESET pg_no_seqscan.check_schemas;

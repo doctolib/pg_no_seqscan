@@ -1,5 +1,5 @@
 -- Test user filtering
-
+LOAD 'pg_no_seqscan';
 SET pg_no_seqscan.level = ERROR;
 CREATE TABLE test_user_table (id serial);
 
@@ -14,5 +14,6 @@ SELECT * FROM test_user_table;
 
 -- Reset session
 RESET SESSION AUTHORIZATION;
+RESET pg_no_seqscan.ignore_users;
 DROP TABLE test_user_table;
 DROP USER test_user;

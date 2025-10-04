@@ -1,10 +1,10 @@
 -- Test CTE detection
-
+LOAD 'pg_no_seqscan';
 SET pg_no_seqscan.level = ERROR;
 CREATE TABLE test_cte AS (SELECT * FROM generate_series(1,10) as id);
 
 -- Test CTE
-EXPLAIN WITH cte AS (SELECT * FROM test_cte) SELECT * FROM cte;
+EXPLAIN (COSTS OFF) WITH cte AS (SELECT * FROM test_cte) SELECT * FROM cte;
 
 WITH cte AS (SELECT * FROM test_cte) SELECT * FROM cte;
 

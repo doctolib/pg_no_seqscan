@@ -1,14 +1,14 @@
 -- Test table filtering with ignore_tables and check_tables
-
+LOAD 'pg_no_seqscan';
 SET pg_no_seqscan.level = ERROR;
 
 CREATE TABLE foo (id serial);
 CREATE TABLE bar (id serial);
 CREATE TABLE baz (id serial);
 
-EXPLAIN SELECT * FROM foo;
-EXPLAIN SELECT * FROM bar;
-EXPLAIN SELECT * FROM baz;
+EXPLAIN (COSTS OFF) SELECT * FROM foo;
+EXPLAIN (COSTS OFF) SELECT * FROM bar;
+EXPLAIN (COSTS OFF) SELECT * FROM baz;
 
 
 -- Test ignore_tables
