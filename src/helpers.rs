@@ -50,5 +50,5 @@ pub unsafe fn current_db_name() -> String {
 
 pub unsafe fn current_username() -> String {
     let current_user = unsafe { pg_sys::GetUserNameFromId(pg_sys::GetUserId(), true) };
-    string_from_ptr(current_user).expect("Failed to get username")
+    string_from_ptr(current_user).unwrap()
 }

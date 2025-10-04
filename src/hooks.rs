@@ -44,7 +44,6 @@ impl NoSeqscanHooks {
         unsafe {
             if let Some(node) = plan.as_ref() {
                 self.check_current_node(plan, rtables);
-
                 self.check_plan_recursively(node.lefttree, rtables);
                 self.check_plan_recursively(node.righttree, rtables);
             }

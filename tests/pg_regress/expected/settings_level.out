@@ -1,0 +1,63 @@
+-- Test basic seqscan detection at different levels
+-- Setup
+LOAD 'pg_no_seqscan';
+SET client_min_messages = NOTICE;
+CREATE TABLE basic_seqscan AS (SELECT * FROM generate_series(1,10) AS id);
+EXPLAIN (COSTS OFF) SELECT * FROM basic_seqscan;
+        QUERY PLAN         
+---------------------------
+ Seq Scan on basic_seqscan
+(1 row)
+
+-- Level OFF should ignore seqscans
+SET pg_no_seqscan.level = OFF;
+SELECT * FROM basic_seqscan;
+ id 
+----
+  1
+  2
+  3
+  4
+  5
+  6
+  7
+  8
+  9
+ 10
+(10 rows)
+
+-- Level WARN should warn on seqscans
+SET pg_no_seqscan.level = WARN;
+SELECT * FROM basic_seqscan;
+NOTICE:  A 'Sequential Scan' on basic_seqscan has been detected.
+  - Run an EXPLAIN on your query to check the query plan.
+  - Make sure the query is compatible with the existing indexes.
+
+Query: SELECT * FROM basic_seqscan;
+
+ id 
+----
+  1
+  2
+  3
+  4
+  5
+  6
+  7
+  8
+  9
+ 10
+(10 rows)
+
+-- Level ERROR should error on seqscans
+SET pg_no_seqscan.level = ERROR;
+SELECT * FROM basic_seqscan; -- This should fail
+ERROR:  A 'Sequential Scan' on basic_seqscan has been detected.
+  - Run an EXPLAIN on your query to check the query plan.
+  - Make sure the query is compatible with the existing indexes.
+
+Query: SELECT * FROM basic_seqscan;
+
+-- Cleanup
+DROP TABLE basic_seqscan;
+RESET client_min_messages;
