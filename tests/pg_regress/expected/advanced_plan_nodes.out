@@ -28,3 +28,4 @@ ERROR:  A 'Sequential Scan' on test_merge_parent,test_merge_child1,test_merge_ch
 Query: SELECT * FROM test_merge_parent ORDER BY id LIMIT 5;
 
 DROP TABLE test_merge_parent CASCADE;
+Make sure CI fails :)
