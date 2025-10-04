@@ -1,0 +1,32 @@
+-- Test complex query detection (joins, CTEs, views, subqueries)
+-- Setup
+CREATE TABLE complex_query_foo AS (SELECT * FROM generate_series(1,10) as id);
+ERROR:  relation "complex_query_foo" already exists
+CREATE TABLE complex_query_bar AS (SELECT * FROM generate_series(1,10) as id);
+ERROR:  relation "complex_query_bar" already exists
+SET pg_no_seqscan.level = ERROR;
+-- Test JOIN
+EXPLAIN
+SELECT * FROM complex_query_foo JOIN complex_query_bar ON complex_query_foo.id = complex_query_bar.id;
+                                   QUERY PLAN                                    
+---------------------------------------------------------------------------------
+ Merge Join  (cost=359.57..860.00 rows=32512 width=8)
+   Merge Cond: (complex_query_foo.id = complex_query_bar.id)
+   ->  Sort  (cost=179.78..186.16 rows=2550 width=4)
+         Sort Key: complex_query_foo.id
+         ->  Seq Scan on complex_query_foo  (cost=0.00..35.50 rows=2550 width=4)
+   ->  Sort  (cost=179.78..186.16 rows=2550 width=4)
+         Sort Key: complex_query_bar.id
+         ->  Seq Scan on complex_query_bar  (cost=0.00..35.50 rows=2550 width=4)
+(8 rows)
+
+SELECT * FROM complex_query_foo JOIN complex_query_bar ON complex_query_foo.id = complex_query_bar.id;
+ERROR:  A 'Sequential Scan' on complex_query_foo,complex_query_bar has been detected.
+  - Run an EXPLAIN on your query to check the query plan.
+  - Make sure the query is compatible with the existing indexes.
+
+Query: SELECT * FROM complex_query_foo JOIN complex_query_bar ON complex_query_foo.id = complex_query_bar.id;
+
+-- Cleanup
+DROP TABLE complex_query_foo, test_join_bar;
+ERROR:  table "test_join_bar" does not exist
