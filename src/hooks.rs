@@ -49,31 +49,19 @@ impl NoSeqscanHooks {
 
             self.check_current_node(plan, rtables);
 
-            // Handle nodes with subplan lists
-            match node.type_ {
-                T_Append => {   
-                    let append_node = &*(plan as *mut Append);
-                    self.check_subplan_list(append_node.appendplans, rtables);
+            if node.type_ == T_Append {
+                let subplans = (*(plan as *mut Append)).appendplans;
+                if !subplans.is_null() {
+                    for i in 0..(*subplans).length {
+                        if let Some(cell) = pg_sys::list_nth_cell(subplans, i).as_ref() {
+                            self.check_plan_recursively(cell.ptr_value as *mut Plan, rtables);
+                        }
+                    }
                 }
-                _ => {}
             }
 
             self.check_plan_recursively(node.lefttree, rtables);
             self.check_plan_recursively(node.righttree, rtables);
-        }
-    }
-
-    unsafe fn check_subplan_list(&mut self, subplan_list: *mut List, rtables: *mut List) {
-        if subplan_list.is_null() {
-            return;
-        }
-
-        let list_length = (*subplan_list).length as usize;
-        for i in 0..list_length {
-            let cell = pg_sys::list_nth_cell(subplan_list, i as i32);
-            if !cell.is_null() {
-                self.check_plan_recursively((*cell).ptr_value as *mut Plan, rtables);
-            }
         }
     }
 
