@@ -143,9 +143,9 @@ Query: {}
         }
 
         let seq_scan: &mut SeqScan = &mut *(node as *mut SeqScan);
-        #[cfg(not(any(feature = "pg14")))]
+        #[cfg(not(feature = "pg14"))]
         let table_oid = scanned_table(seq_scan.scan.scanrelid, rtables).unwrap();
-        #[cfg(any(feature = "pg14"))]
+        #[cfg(feature = "pg14")]
         let table_oid = scanned_table(seq_scan.scanrelid, rtables).unwrap();
 
         if self.is_sequence(table_oid) {
