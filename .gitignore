@@ -2,6 +2,7 @@
 .idea/
 /target
 /tests/pg_regress/results
+/tests/pg_regress/regression.*
 *.iml
 **/*.rs.bk
 Cargo.lock

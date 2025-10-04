@@ -1,8 +1,6 @@
 use crate::guc;
 use pgrx::pg_sys::{
-    Append, CmdType, DestReceiver, List,
-    NodeTag::T_Append
-    , NodeTag::T_SeqScan, Oid, ParamListInfo,
+    Append, CmdType, DestReceiver, List, NodeTag::T_Append, NodeTag::T_SeqScan, Oid, ParamListInfo,
     Plan, PlannedStmt, ProcessUtilityContext, QueryCompletion, QueryDesc, QueryEnvironment,
     SeqScan,
 };
@@ -178,12 +176,9 @@ Query: {}
 
         // Check if this table is a partition, and if so, use the parent table name
         let report_table_name = if let Some(parent_oid) = get_parent_table_oid(table_oid) {
-            let parent_name =
-                resolve_table_name(parent_oid).expect("Failed to resolve parent table name");
-            parent_name
+            resolve_table_name(parent_oid).expect("Failed to resolve parent table name")
         } else {
-            let table_name = resolve_table_name(table_oid).expect("Failed to resolve table name");
-            table_name
+            resolve_table_name(table_oid).expect("Failed to resolve table name")
         };
 
         if !self.is_checked_table(report_table_name.clone()) {
