@@ -1,23 +1,21 @@
 -- Test detection of sequential scans in Append
-SET pg_no_seqscan.level = ERROR;
+LOAD 'pg_no_seqscan';LOAD 'pg_no_seqscan';
 -- Test MergeAppend (UNION ALL with ORDER BY on partitioned table)
 CREATE TABLE test_merge_parent (id int, data text);
 CREATE TABLE test_merge_child1 (CHECK (id < 2)) INHERITS (test_merge_parent);
 CREATE TABLE test_merge_child2 (CHECK (id >= 2)) INHERITS (test_merge_parent);
-INSERT INTO test_merge_child1 SELECT i, 'data' || i FROM generate_series(1, 2) i;
-ERROR:  new row for relation "test_merge_child1" violates check constraint "test_merge_child1_id_check"
-INSERT INTO test_merge_child2 SELECT i, 'data' || i FROM generate_series(3, 4) i;
+INSERT INTO test_merge_parent SELECT i, 'data' || i FROM generate_series(1, 5) i;
 -- This should trigger MergeAppend and detect sequential scans in child tables
-EXPLAIN SELECT * FROM test_merge_parent ORDER BY id LIMIT 5;
-                                                 QUERY PLAN                                                 
-------------------------------------------------------------------------------------------------------------
- Limit  (cost=100.31..100.32 rows=5 width=36)
-   ->  Sort  (cost=100.31..106.66 rows=2541 width=36)
+EXPLAIN (COSTS OFF) SELECT * FROM test_merge_parent ORDER BY id LIMIT 5;
+                             QUERY PLAN                              
+---------------------------------------------------------------------
+ Limit
+   ->  Sort
          Sort Key: test_merge_parent.id
-         ->  Append  (cost=0.00..58.11 rows=2541 width=36)
-               ->  Seq Scan on test_merge_parent test_merge_parent_1  (cost=0.00..0.00 rows=1 width=36)
-               ->  Seq Scan on test_merge_child1 test_merge_parent_2  (cost=0.00..22.70 rows=1270 width=36)
-               ->  Seq Scan on test_merge_child2 test_merge_parent_3  (cost=0.00..22.70 rows=1270 width=36)
+         ->  Append
+               ->  Seq Scan on test_merge_parent test_merge_parent_1
+               ->  Seq Scan on test_merge_child1 test_merge_parent_2
+               ->  Seq Scan on test_merge_child2 test_merge_parent_3
 (7 rows)
 
 SELECT * FROM test_merge_parent ORDER BY id LIMIT 5;
@@ -27,5 +25,4 @@ ERROR:  A 'Sequential Scan' on test_merge_parent,test_merge_child1,test_merge_ch
 
 Query: SELECT * FROM test_merge_parent ORDER BY id LIMIT 5;
 
-DROP TABLE test_merge_parent CASCADE;
-Make sure CI fails :)
+DROP TABLE test_merge_child1, test_merge_child2, test_merge_parent;

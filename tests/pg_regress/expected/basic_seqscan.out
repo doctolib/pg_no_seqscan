@@ -1,17 +1,12 @@
 -- Test basic seqscan detection at different levels
 -- Setup
-SHOW client_min_messages;
- client_min_messages 
----------------------
- warning
-(1 row)
-
+LOAD 'pg_no_seqscan';
 SET client_min_messages = NOTICE;
 CREATE TABLE basic_seqscan AS (SELECT * FROM generate_series(1,10) AS id);
-EXPLAIN SELECT * FROM basic_seqscan;
-                           QUERY PLAN                            
------------------------------------------------------------------
- Seq Scan on basic_seqscan  (cost=0.00..35.50 rows=2550 width=4)
+EXPLAIN (COSTS OFF) SELECT * FROM basic_seqscan;
+        QUERY PLAN         
+---------------------------
+ Seq Scan on basic_seqscan
 (1 row)
 
 -- Test 1: Level OFF should ignore seqscans
@@ -65,4 +60,4 @@ Query: SELECT * FROM basic_seqscan;
 
 -- Cleanup
 DROP TABLE basic_seqscan;
-SET client_min_messages = WARNING;
+RESET client_min_messages;
