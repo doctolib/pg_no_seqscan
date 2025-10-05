@@ -10,7 +10,7 @@ EXPLAIN (COSTS OFF) SELECT * FROM test_explain;
 (1 row)
 
 -- EXPLAIN (COSTS OFF) ANALYZE should not trigger errors
-EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF) SELECT * FROM test_explain;
+EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF, BUFFERS OFF) SELECT * FROM test_explain;
                     QUERY PLAN                     
 ---------------------------------------------------
  Seq Scan on test_explain (actual rows=10 loops=1)
