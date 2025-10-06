@@ -1,0 +1,29 @@
+-- Test detection of sequential scans in Append
+LOAD 'pg_no_seqscan';
+SET pg_no_seqscan.level = ERROR;
+-- Test MergeAppend (UNION ALL with ORDER BY on partitioned table)
+CREATE TABLE test_merge_parent (id int, data text);
+CREATE TABLE test_merge_child1 (CHECK (id < 2)) INHERITS (test_merge_parent);
+CREATE TABLE test_merge_child2 (CHECK (id >= 2)) INHERITS (test_merge_parent);
+INSERT INTO test_merge_parent SELECT i, 'data' || i FROM generate_series(1, 5) i;
+-- This should trigger MergeAppend and detect sequential scans in child tables
+EXPLAIN (COSTS OFF) SELECT * FROM test_merge_parent ORDER BY id LIMIT 5;
+                             QUERY PLAN                              
+---------------------------------------------------------------------
+ Limit
+   ->  Sort
+         Sort Key: test_merge_parent.id
+         ->  Append
+               ->  Seq Scan on test_merge_parent test_merge_parent_1
+               ->  Seq Scan on test_merge_child1 test_merge_parent_2
+               ->  Seq Scan on test_merge_child2 test_merge_parent_3
+(7 rows)
+
+SELECT * FROM test_merge_parent ORDER BY id LIMIT 5;
+ERROR:  A 'Sequential Scan' on test_merge_parent,test_merge_child1,test_merge_child2 has been detected.
+  - Run an EXPLAIN on your query to check the query plan.
+  - Make sure the query is compatible with the existing indexes.
+
+Query: SELECT * FROM test_merge_parent ORDER BY id LIMIT 5;
+
+DROP TABLE test_merge_child1, test_merge_child2, test_merge_parent;

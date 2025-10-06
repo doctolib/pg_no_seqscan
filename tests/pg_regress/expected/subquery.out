@@ -1,0 +1,14 @@
+-- Test subquery detection
+LOAD 'pg_no_seqscan';
+SET pg_no_seqscan.level = ERROR;
+CREATE TABLE test_subq AS (SELECT * FROM generate_series(1,10) as id);
+-- Test subquery
+SELECT * FROM (SELECT * FROM test_subq) as subq;
+ERROR:  A 'Sequential Scan' on test_subq has been detected.
+  - Run an EXPLAIN on your query to check the query plan.
+  - Make sure the query is compatible with the existing indexes.
+
+Query: SELECT * FROM (SELECT * FROM test_subq) as subq;
+
+-- Cleanup
+DROP TABLE test_subq;
