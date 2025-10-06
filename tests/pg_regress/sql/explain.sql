@@ -42,3 +42,4 @@ SELECT * FROM test_explain;
 
 -- cleanup
 drop table test_explain;
+drop function explain_filter;
