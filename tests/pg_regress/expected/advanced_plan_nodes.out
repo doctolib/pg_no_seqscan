@@ -1,5 +1,6 @@
 -- Test detection of sequential scans in Append
-LOAD 'pg_no_seqscan';LOAD 'pg_no_seqscan';
+LOAD 'pg_no_seqscan';
+SET pg_no_seqscan.level = ERROR;
 -- Test MergeAppend (UNION ALL with ORDER BY on partitioned table)
 CREATE TABLE test_merge_parent (id int, data text);
 CREATE TABLE test_merge_child1 (CHECK (id < 2)) INHERITS (test_merge_parent);
