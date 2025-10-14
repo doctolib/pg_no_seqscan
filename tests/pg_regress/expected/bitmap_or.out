@@ -1,0 +1,31 @@
+-- Test detection in bitmap or
+LOAD 'pg_no_seqscan';
+SET pg_no_seqscan.level = ERROR;
+-- Setup
+CREATE TABLE foo (id bigint, value text, category text);
+INSERT INTO foo SELECT i, 'value' || i, CASE WHEN i % 2 = 0 THEN 'even' ELSE 'odd' END FROM generate_series(1, 600) i;
+CREATE INDEX idx_foo_value ON foo(value);
+CREATE INDEX idx_foo_category ON foo(category);
+-- Show query plan
+EXPLAIN SELECT count(*) FROM foo WHERE value = 'value1' OR category = 'even';
+                                        QUERY PLAN
+-------------------------------------------------------------------------------------------
+ Aggregate  (cost=12.58..12.59 rows=1 width=8)
+   ->  Bitmap Heap Scan on foo  (cost=8.47..12.56 rows=6 width=0)
+         Recheck Cond: ((value = 'value1'::text) OR (category = 'even'::text))
+         ->  BitmapOr  (cost=8.47..8.47 rows=6 width=0)
+               ->  Bitmap Index Scan on idx_foo_value  (cost=0.00..4.30 rows=3 width=0)
+                     Index Cond: (value = 'value1'::text)
+               ->  Bitmap Index Scan on idx_foo_category  (cost=0.00..4.17 rows=3 width=0)
+                     Index Cond: (category = 'even'::text)
+(8 rows)
+
+-- Should pass as it uses bitmap or
+SELECT count(*) FROM foo WHERE value = 'value1' OR category = 'even';
+ count
+-------
+   301
+(1 row)
+
+-- Cleanup
+DROP TABLE foo;

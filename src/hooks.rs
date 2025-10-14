@@ -1,8 +1,6 @@
 use crate::guc;
 use pgrx::pg_sys::{
-    Append, CmdType, DestReceiver, List,
-    NodeTag::T_Append
-    , NodeTag::T_SeqScan, Oid, ParamListInfo,
+    Append, CmdType, DestReceiver, List, NodeTag::T_Append, NodeTag::T_SeqScan, Oid, ParamListInfo,
     Plan, PlannedStmt, ProcessUtilityContext, QueryCompletion, QueryDesc, QueryEnvironment,
     SeqScan,
 };
