@@ -1,8 +1,7 @@
 use crate::guc;
 use pgrx::pg_sys::{
-    Append, CmdType, DestReceiver, List, NodeTag::T_Append, NodeTag::T_SeqScan, Oid, ParamListInfo,
-    Plan, PlannedStmt, ProcessUtilityContext, QueryCompletion, QueryDesc, QueryEnvironment,
-    SeqScan,
+    CmdType, DestReceiver, List, NodeTag::T_SeqScan, Oid, ParamListInfo, Plan, PlannedStmt,
+    ProcessUtilityContext, QueryCompletion, QueryDesc, QueryEnvironment, SeqScan,
 };
 use pgrx::{error, notice, pg_guard, pg_sys, PgBox, PgRelation};
 use regex::Regex;
@@ -43,23 +42,11 @@ impl NoSeqscanHooks {
 
     fn check_plan_recursively(&mut self, plan: *mut Plan, rtables: *mut List) {
         unsafe {
-            let Some(node) = plan.as_ref() else { return };
-
-            self.check_current_node(plan, rtables);
-
-            if node.type_ == T_Append {
-                let subplans = (*(plan as *mut Append)).appendplans;
-                if !subplans.is_null() {
-                    for i in 0..(*subplans).length {
-                        if let Some(cell) = pg_sys::list_nth_cell(subplans, i).as_ref() {
-                            self.check_plan_recursively(cell.ptr_value as *mut Plan, rtables);
-                        }
-                    }
-                }
+            if let Some(node) = plan.as_ref() {
+                self.check_current_node(plan, rtables);
+                self.check_plan_recursively(node.lefttree, rtables);
+                self.check_plan_recursively(node.righttree, rtables);
             }
-
-            self.check_plan_recursively(node.lefttree, rtables);
-            self.check_plan_recursively(node.righttree, rtables);
         }
     }
 
