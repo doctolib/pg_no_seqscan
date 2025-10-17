@@ -1,0 +1,22 @@
+-- Test that indexed queries don't trigger errors
+-- Setup
+LOAD 'pg_no_seqscan';
+SET pg_no_seqscan.level = ERROR;
+CREATE SEQUENCE test_seq;
+-- Show plan:
+EXPLAIN (COSTS OFF)
+SELECT last_value FROM test_seq;
+      QUERY PLAN      
+----------------------
+ Seq Scan on test_seq
+(1 row)
+
+-- Querying a sequence should not cause error
+SELECT last_value FROM test_seq;
+ last_value 
+------------
+          1
+(1 row)
+
+-- cleanup
+DROP SEQUENCE test_seq;

@@ -45,7 +45,7 @@ pub unsafe fn resolve_table_name(table_oid: Oid) -> Option<String> {
 
 pub unsafe fn current_db_name() -> String {
     let db_oid = pg_sys::MyDatabaseId;
-    string_from_ptr(pg_sys::get_database_name(db_oid)).unwrap()
+    string_from_ptr(pg_sys::get_database_name(db_oid)).expect("Failed to get database name")
 }
 
 pub unsafe fn current_username() -> String {

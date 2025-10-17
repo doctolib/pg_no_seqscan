@@ -4,7 +4,7 @@ Here are some hints to prepare your environment to contribute to the project:
 
 - Install git (pre-commit)[https://pre-commit.com/] hooks with `pre-commit install`
 - Start a PG with the extension `cargo pgrx run`
-- Run tests with `cargo test`
+- Run tests with `cargo pgrx regress` (use options --resetdb to force the reset of the db, and --auto to automatically update the expected results)
 - Format with `cargo fmt`
 - Lint with `cargo clippy`
 

@@ -11,7 +11,7 @@ name = "pgrx_embed_pg_no_seqscan"
 path = "./src/bin/pgrx_embed.rs"
 
 [features]
-default = ["pg18"]
+default = ["pg15"]
 pg14 = ["pgrx/pg14", "pgrx-tests/pg14" ]
 pg15 = ["pgrx/pg15", "pgrx-tests/pg15" ]
 pg16 = ["pgrx/pg16", "pgrx-tests/pg16" ]
@@ -34,6 +34,9 @@ panic = "unwind"
 opt-level = 3
 lto = "fat"
 codegen-units = 1
+
+[package.metadata.pgrx.regress]
+enabled = true
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(pgrx_embed)'] }

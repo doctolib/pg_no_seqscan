@@ -1,0 +1,59 @@
+-- Test database filtering
+-- Setup
+LOAD 'pg_no_seqscan';
+SET pg_no_seqscan.level = ERROR;
+CREATE TABLE test_db AS (SELECT * FROM generate_series(1,10) as id);
+-- Show the plan
+EXPLAIN (COSTS OFF) SELECT * FROM test_db;
+     QUERY PLAN      
+---------------------
+ Seq Scan on test_db
+(1 row)
+
+-- Empty check_databases should check all databases
+SET pg_no_seqscan.check_databases = '';
+SELECT * FROM test_db; -- Should error
+ERROR:  A 'Sequential Scan' on test_db has been detected.
+  - Run an EXPLAIN on your query to check the query plan.
+  - Make sure the query is compatible with the existing indexes.
+
+Query: SELECT * FROM test_db;
+
+-- Non-matching database should be ignored
+-- Note: regress tests run in database named 'contrib_regression' or similar
+SET pg_no_seqscan.check_databases = 'postgres';
+SELECT * FROM test_db; -- Should pass
+ id 
+----
+  1
+  2
+  3
+  4
+  5
+  6
+  7
+  8
+  9
+ 10
+(10 rows)
+
+-- Matching database should be checked
+-- Note: current database depends on the test runner, that's why we use this hack to not return it.
+SELECT ''
+EXCEPT
+SELECT set_config('pg_no_seqscan.check_databases', current_database(), false);
+ ?column? 
+----------
+ 
+(1 row)
+
+SELECT * FROM test_db; -- Should error
+ERROR:  A 'Sequential Scan' on test_db has been detected.
+  - Run an EXPLAIN on your query to check the query plan.
+  - Make sure the query is compatible with the existing indexes.
+
+Query: SELECT * FROM test_db;
+
+-- Cleanup
+DROP TABLE test_db;
+RESET pg_no_seqscan.check_databases;
