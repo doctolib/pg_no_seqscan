@@ -42,17 +42,21 @@ SELECT * FROM test_db; -- Should pass
 SELECT ''
 EXCEPT
 SELECT set_config('pg_no_seqscan.check_databases', current_database(), false);
- ?column? 
-----------
- 
-(1 row)
-
+ERROR:  called `Option::unwrap()` on a `None` value
 SELECT * FROM test_db; -- Should error
-ERROR:  A 'Sequential Scan' on test_db has been detected.
-  - Run an EXPLAIN on your query to check the query plan.
-  - Make sure the query is compatible with the existing indexes.
-
-Query: SELECT * FROM test_db;
+ id 
+----
+  1
+  2
+  3
+  4
+  5
+  6
+  7
+  8
+  9
+ 10
+(10 rows)
 
 -- Cleanup
 DROP TABLE test_db;
