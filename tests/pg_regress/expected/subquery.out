@@ -9,7 +9,7 @@ EXPLAIN (COSTS OFF)
 SELECT * FROM test_subq where id = 2
 EXCEPT
 SELECT * FROM test_subq;
-                             QUERY PLAN
+                             QUERY PLAN                             
 --------------------------------------------------------------------
  HashSetOp Except
    ->  Append
@@ -35,7 +35,7 @@ EXPLAIN
 SELECT * FROM test_subq
 EXCEPT
 SELECT * FROM test_subq where id = 2;
-                                                    QUERY PLAN
+                                                    QUERY PLAN                                                    
 ------------------------------------------------------------------------------------------------------------------
  HashSetOp Except  (cost=10000000000.00..10000000009.43 rows=10 width=8)
    ->  Append  (cost=10000000000.00..10000000009.41 rows=11 width=8)

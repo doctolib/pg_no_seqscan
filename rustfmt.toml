@@ -1,2 +1,0 @@
-# Needs rustfmt nightly
-ignore = ['tests/pg_regress/expected']

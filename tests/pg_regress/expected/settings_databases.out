@@ -5,7 +5,7 @@ SET pg_no_seqscan.level = ERROR;
 CREATE TABLE test_db AS (SELECT * FROM generate_series(1,10) as id);
 -- Show the plan
 EXPLAIN (COSTS OFF) SELECT * FROM test_db;
-     QUERY PLAN
+     QUERY PLAN      
 ---------------------
  Seq Scan on test_db
 (1 row)
@@ -23,7 +23,7 @@ Query: SELECT * FROM test_db;
 -- Note: regress tests run in database named 'contrib_regression' or similar
 SET pg_no_seqscan.check_databases = 'postgres';
 SELECT * FROM test_db; -- Should pass
- id
+ id 
 ----
   1
   2
@@ -42,9 +42,9 @@ SELECT * FROM test_db; -- Should pass
 SELECT ''
 EXCEPT
 SELECT set_config('pg_no_seqscan.check_databases', current_database(), false);
- ?column?
+ ?column? 
 ----------
-
+ 
 (1 row)
 
 SELECT * FROM test_db; -- Should error
