@@ -1,4 +1,6 @@
 -- Test partitioning support
+LOAD 'pg_no_seqscan';
+SET pg_no_seqscan.level = ERROR;
 SET enable_seqscan = off;
 CREATE TABLE partitioned_foo (id bigint) PARTITION BY RANGE (id);
 CREATE TABLE partitioned_foo_1 PARTITION OF partitioned_foo FOR VALUES FROM (1) TO (5);

@@ -1,4 +1,6 @@
 -- Test table filtering with ignore_tables and check_tables
+LOAD 'pg_no_seqscan';
+SET pg_no_seqscan.level = ERROR;
 CREATE TABLE foo (id serial);
 CREATE TABLE bar (id serial);
 CREATE TABLE baz (id serial);

@@ -1,6 +1,7 @@
 -- Test that EXPLAIN (COSTS OFF) queries are ignored
 -- Setup
-
+LOAD 'pg_no_seqscan';
+SET pg_no_seqscan.level = ERROR;
 -- explain_filter is here to produce stable regression, inspired from:
 -- https://github.com/postgres/postgres/blob/master/src/test/regress/sql/explain.sql
 create function explain_filter(text) returns setof text

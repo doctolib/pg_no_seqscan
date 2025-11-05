@@ -1,5 +1,8 @@
 -- Test database filtering
 -- Setup
+LOAD 'pg_no_seqscan';
+SET pg_no_seqscan.level = ERROR;
+
 CREATE TABLE test_db AS (SELECT * FROM generate_series(1,10) as id);
 
 -- Show the plan

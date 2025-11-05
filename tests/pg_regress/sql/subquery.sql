@@ -1,4 +1,6 @@
 -- Test subquery detection
+LOAD 'pg_no_seqscan';
+SET pg_no_seqscan.level = ERROR;
 SET enable_seqscan = off;
 CREATE TABLE test_subq AS (SELECT * FROM generate_series(1,10) as id);
 
