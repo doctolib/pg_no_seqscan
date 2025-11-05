@@ -5,7 +5,7 @@ SET pg_no_seqscan.level = ERROR;
 CREATE TABLE test_db AS (SELECT * FROM generate_series(1,10) as id);
 -- Show the plan
 EXPLAIN (COSTS OFF) SELECT * FROM test_db;
-     QUERY PLAN      
+     QUERY PLAN
 ---------------------
  Seq Scan on test_db
 (1 row)
@@ -23,7 +23,7 @@ Query: SELECT * FROM test_db;
 -- Note: regress tests run in database named 'contrib_regression' or similar
 SET pg_no_seqscan.check_databases = 'postgres';
 SELECT * FROM test_db; -- Should pass
- id 
+ id
 ----
   1
   2
@@ -42,21 +42,17 @@ SELECT * FROM test_db; -- Should pass
 SELECT ''
 EXCEPT
 SELECT set_config('pg_no_seqscan.check_databases', current_database(), false);
-ERROR:  called `Option::unwrap()` on a `None` value
+ ?column?
+----------
+
+(1 row)
+
 SELECT * FROM test_db; -- Should error
- id 
-----
-  1
-  2
-  3
-  4
-  5
-  6
-  7
-  8
-  9
- 10
-(10 rows)
+ERROR:  A 'Sequential Scan' on test_db has been detected.
+  - Run an EXPLAIN on your query to check the query plan.
+  - Make sure the query is compatible with the existing indexes.
+
+Query: SELECT * FROM test_db;
 
 -- Cleanup
 DROP TABLE test_db;

@@ -1,10 +1,10 @@
 use crate::guc;
 use pgrx::pg_sys::{
-    Append, CmdType, DestReceiver, List, NodeTag::T_Append, NodeTag::T_SeqScan, Oid, ParamListInfo,
-    Plan, PlannedStmt, ProcessUtilityContext, QueryCompletion, QueryDesc, QueryEnvironment,
-    SeqScan, SubqueryScan,
+    Append, CmdType, CommonTableExpr, CteScan, DestReceiver, List, NodeTag, NodeTag::T_Append,
+    NodeTag::T_SeqScan, Oid, ParamListInfo, PgNode, Plan, PlannedStmt, ProcessUtilityContext,
+    QueryCompletion, QueryDesc, QueryEnvironment, SeqScan, SubPlan, SubqueryScan,
 };
-use pgrx::{error, notice, pg_guard, pg_sys, PgBox, PgRelation};
+use pgrx::{error, notice, pg_guard, pg_sys, warning, PgBox, PgRelation, NULL};
 use regex::Regex;
 
 use crate::guc::DetectionLevelEnum;
@@ -13,7 +13,7 @@ use crate::helpers::{
     resolve_namespace_name, resolve_table_name, scanned_table,
 };
 use pgrx::pg_sys::ffi::pg_guard_ffi_boundary;
-use pgrx::pg_sys::NodeTag::T_SubqueryScan;
+use pgrx::pg_sys::NodeTag::{T_CommonTableExpr, T_CteScan, T_SubPlan, T_SubqueryScan};
 use std::ffi::CStr;
 use std::os::raw::c_char;
 
@@ -34,7 +34,18 @@ impl NoSeqscanHooks {
         }
 
         let ps = plannedstmt_ref.unwrap();
+
         self.check_plan_recursively(ps.planTree, ps.rtable);
+        if !ps.subplans.is_null() {
+            // Queries with CTEs generate subplans
+            unsafe {
+                for i in 0..(*ps.subplans).length {
+                    if let Some(cell) = pg_sys::list_nth_cell(ps.subplans, i).as_ref() {
+                        self.check_plan_recursively(cell.ptr_value as *mut Plan, ps.rtable);
+                    }
+                }
+            }
+        }
 
         if !self.tables_in_seqscans.is_empty() && !self.is_ignored_query_for_comment(&query_string)
         {
@@ -59,14 +70,7 @@ impl NoSeqscanHooks {
                 }
             } else if node.type_ == T_SubqueryScan {
                 let subquery = (plan as *mut SubqueryScan).as_ref().unwrap();
-                let subplan = subquery
-                    .subplan
-                    .as_ref()
-                    .unwrap()
-                    .lefttree
-                    .as_ref()
-                    .unwrap();
-                self.check_plan_recursively(subplan.lefttree, rtables);
+                self.check_plan_recursively(subquery.subplan, rtables);
             }
 
             self.check_plan_recursively(node.lefttree, rtables);
