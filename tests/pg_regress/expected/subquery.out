@@ -1,6 +1,4 @@
 -- Test subquery detection
-LOAD 'pg_no_seqscan';
-SET pg_no_seqscan.level = ERROR;
 SET enable_seqscan = off;
 CREATE TABLE test_subq AS (SELECT * FROM generate_series(1,10) as id);
 CREATE INDEX test_subq_idx ON test_subq(id) where id = 2;
@@ -31,18 +29,18 @@ EXCEPT
 SELECT * FROM test_subq;
 
 -- Other subquery with seq scan on the left branch should fail
-EXPLAIN
+EXPLAIN (COSTS OFF)
 SELECT * FROM test_subq
 EXCEPT
 SELECT * FROM test_subq where id = 2;
-                                                    QUERY PLAN                                                    
-------------------------------------------------------------------------------------------------------------------
- HashSetOp Except  (cost=10000000000.00..10000000009.43 rows=10 width=8)
-   ->  Append  (cost=10000000000.00..10000000009.41 rows=11 width=8)
-         ->  Subquery Scan on "*SELECT* 1"  (cost=10000000000.00..10000000001.20 rows=10 width=8)
-               ->  Seq Scan on test_subq  (cost=10000000000.00..10000000001.10 rows=10 width=4)
-         ->  Subquery Scan on "*SELECT* 2"  (cost=0.12..8.15 rows=1 width=8)
-               ->  Index Only Scan using test_subq_idx on test_subq test_subq_1  (cost=0.12..8.14 rows=1 width=4)
+                                   QUERY PLAN                                   
+--------------------------------------------------------------------------------
+ HashSetOp Except
+   ->  Append
+         ->  Subquery Scan on "*SELECT* 1"
+               ->  Seq Scan on test_subq
+         ->  Subquery Scan on "*SELECT* 2"
+               ->  Index Only Scan using test_subq_idx on test_subq test_subq_1
 (6 rows)
 
 SELECT * FROM test_subq

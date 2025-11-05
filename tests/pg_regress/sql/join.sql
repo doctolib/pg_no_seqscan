@@ -1,9 +1,7 @@
--- Test join query detection
+-- Test detection in JOIN
 -- Setup
-LOAD 'pg_no_seqscan';
 CREATE TABLE complex_query_foo AS (SELECT * FROM generate_series(1,10) as id);
 CREATE TABLE complex_query_bar AS (SELECT * FROM generate_series(1,10) as id);
-SET pg_no_seqscan.level = ERROR;
 
 -- Test JOIN
 EXPLAIN (COSTS OFF)

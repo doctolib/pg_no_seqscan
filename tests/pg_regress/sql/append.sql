@@ -1,8 +1,5 @@
--- Test detection of sequential scans in Append
-LOAD 'pg_no_seqscan';
+-- Test detection in APPEND
 SET enable_seqscan = off;
-SET pg_no_seqscan.level = ERROR;
-
 CREATE TABLE test_for_append (id int, data text);
 
 INSERT INTO test_for_append SELECT i, 'data' || i FROM generate_series(1, 5) i;

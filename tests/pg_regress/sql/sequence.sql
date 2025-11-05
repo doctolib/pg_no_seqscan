@@ -1,8 +1,5 @@
--- Test that indexed queries don't trigger errors
+-- Test detection in SEQUENCE
 -- Setup
-LOAD 'pg_no_seqscan';
-SET pg_no_seqscan.level = ERROR;
-
 CREATE SEQUENCE test_seq;
 -- Show plan:
 EXPLAIN (COSTS OFF)

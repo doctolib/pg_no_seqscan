@@ -1,7 +1,4 @@
 -- Test schema filtering
-LOAD 'pg_no_seqscan';
-SET pg_no_seqscan.level = ERROR;
-
 CREATE SCHEMA test_schema1;
 CREATE SCHEMA test_schema2;
 CREATE TABLE test_schema1.foo AS (SELECT * FROM generate_series(1,10) as id);

@@ -1,6 +1,4 @@
 -- Test ignoring seqscans with skip comments
-LOAD 'pg_no_seqscan';
-SET pg_no_seqscan.level = ERROR;
 CREATE TABLE test_skip AS (SELECT * FROM generate_series(1,10) AS id);
 -- Show the plan
 EXPLAIN (COSTS OFF)

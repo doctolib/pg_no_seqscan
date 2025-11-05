@@ -1,6 +1,4 @@
 -- Test user filtering
-LOAD 'pg_no_seqscan';
-SET pg_no_seqscan.level = ERROR;
 CREATE TABLE test_user_table (id serial);
 
 CREATE USER test_user;
