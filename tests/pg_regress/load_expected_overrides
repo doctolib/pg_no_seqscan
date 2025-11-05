@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+PG_VERSION=$1
+WORKING_DIR=$(dirname $0)
+
+for file in $(ls ${WORKING_DIR}/expected/*.out.pg$PG_VERSION); do
+    target_file=$(basename $file | sed "s/.pg${PG_VERSION}$//")
+    cp $file ${WORKING_DIR}/expected/$target_file
+done
