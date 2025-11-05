@@ -61,11 +61,9 @@ impl NoSeqscanHooks {
 
             if node.type_ == T_Append {
                 let subplans = (*(plan as *mut Append)).appendplans;
-                if !subplans.is_null() {
-                    for i in 0..(*subplans).length {
-                        if let Some(cell) = pg_sys::list_nth_cell(subplans, i).as_ref() {
-                            self.check_plan_recursively(cell.ptr_value as *mut Plan, rtables);
-                        }
+                for i in 0..(*subplans).length {
+                    if let Some(cell) = pg_sys::list_nth_cell(subplans, i).as_ref() {
+                        self.check_plan_recursively(cell.ptr_value as *mut Plan, rtables);
                     }
                 }
             } else if node.type_ == T_SubqueryScan {

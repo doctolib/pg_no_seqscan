@@ -51,5 +51,5 @@ SELECT * FROM partitioned_foo_1;
 (0 rows)
 
 -- cleanup
-RESET pg_no_seqscan.check_tables;
+RESET pg_no_seqscan.ignore_tables;
 DROP TABLE partitioned_foo cascade;
