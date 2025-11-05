@@ -10,7 +10,8 @@ repos:
       - id: end-of-file-fixer
       - id: mixed-line-ending
       - id: trailing-whitespace
-        types: [rust]
+        types: [text]
+        files: \.(json|rs|sql|toml|yaml|yml)$
   - repo: https://github.com/doublify/pre-commit-rust
     rev: v1.0
     hooks:
