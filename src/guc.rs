@@ -59,7 +59,7 @@ pub fn register_gucs() {
     GucRegistry::define_string_guc(
         c"pg_no_seqscan.check_tables",
         c"Tables to check seqscan for, comma separated",
-        c"If empty, all tables will be checked",
+        c"If empty, all tables will be checked. For partitions, mention the partitioned table.",
         &PG_NO_SEQSCAN_CHECK_TABLES,
         GucContext::Suset,
         GucFlags::SUPERUSER_ONLY,
