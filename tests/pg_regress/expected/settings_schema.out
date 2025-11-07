@@ -1,4 +1,5 @@
 -- Test schema filtering
+-- Setup
 LOAD 'pg_no_seqscan';
 SET pg_no_seqscan.level = ERROR;
 CREATE SCHEMA test_schema1;
@@ -8,7 +9,13 @@ CREATE TABLE test_schema2.bar AS (SELECT * FROM generate_series(1,10) as id);
 CREATE TABLE public.baz AS (SELECT * FROM generate_series(1,10) as id);
 -- Set check_schemas to only check test_schema1 and public
 SET pg_no_seqscan.check_schemas = 'test_schema1,public';
--- This should be ignored due to schema not in check_schemas setting
+-- Allows query execution as test_schema2 is not in check_schemas setting
+EXPLAIN (COSTS OFF) SELECT * FROM test_schema2.bar;
+   QUERY PLAN    
+-----------------
+ Seq Scan on bar
+(1 row)
+
 SELECT * FROM test_schema2.bar;
  id 
 ----
@@ -24,7 +31,13 @@ SELECT * FROM test_schema2.bar;
  10
 (10 rows)
 
--- These should error
+-- Blocks query execution as test_schema1 is not in check_schemas setting
+EXPLAIN (COSTS OFF) SELECT * FROM test_schema1.foo;
+   QUERY PLAN    
+-----------------
+ Seq Scan on foo
+(1 row)
+
 SELECT * FROM test_schema1.foo;
 ERROR:  A 'Sequential Scan' on foo has been detected.
   - Run an EXPLAIN on your query to check the query plan.

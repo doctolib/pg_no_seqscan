@@ -1,9 +1,11 @@
 -- Test detection in APPEND
+-- Setup
 LOAD 'pg_no_seqscan';
 SET pg_no_seqscan.level = ERROR;
 SET enable_seqscan = off;
 CREATE TABLE test_for_append (id int, data text);
 INSERT INTO test_for_append SELECT i, 'data' || i FROM generate_series(1, 5) i;
+-- Blocks query execution as both parts are seq scan
 EXPLAIN (COSTS OFF) (SELECT * FROM test_for_append ORDER BY id LIMIT 1) UNION ALL (SELECT * FROM test_for_append ORDER BY id desc LIMIT 1);
                            QUERY PLAN                            
 -----------------------------------------------------------------
@@ -27,7 +29,7 @@ ERROR:  A 'Sequential Scan' on test_for_append,test_for_append has been detected
 
 Query: (SELECT * FROM test_for_append ORDER BY id LIMIT 1) UNION ALL (SELECT * FROM test_for_append ORDER BY id desc LIMIT 1);
 
--- Blocks seq scan even if the first part of the append is an index scan.
+-- Blocks query execution as one part of the append is an index scan.
 CREATE INDEX test_for_append_idx ON test_for_append (id);
 EXPLAIN (COSTS OFF) (SELECT * FROM test_for_append ORDER BY id LIMIT 1) UNION ALL (SELECT * FROM test_for_append ORDER BY random() LIMIT 1);
                               QUERY PLAN                               
@@ -49,5 +51,23 @@ ERROR:  A 'Sequential Scan' on test_for_append has been detected.
   - Make sure the query is compatible with the existing indexes.
 
 Query: (SELECT * FROM test_for_append ORDER BY id LIMIT 1) UNION ALL (SELECT * FROM test_for_append ORDER BY random() LIMIT 1);
+
+-- Allows query execution as both part are index scan
+EXPLAIN (COSTS OFF) (SELECT * FROM test_for_append ORDER BY id LIMIT 1) UNION ALL (SELECT * FROM test_for_append ORDER BY id LIMIT 1 OFFSET 2);
+                                      QUERY PLAN                                       
+---------------------------------------------------------------------------------------
+ Append
+   ->  Limit
+         ->  Index Scan using test_for_append_idx on test_for_append
+   ->  Limit
+         ->  Index Scan using test_for_append_idx on test_for_append test_for_append_1
+(5 rows)
+
+(SELECT * FROM test_for_append ORDER BY id LIMIT 1) UNION ALL (SELECT * FROM test_for_append ORDER BY id LIMIT 1 OFFSET 2);
+ id | data  
+----+-------
+  1 | data1
+  3 | data3
+(2 rows)
 
 DROP TABLE test_for_append;

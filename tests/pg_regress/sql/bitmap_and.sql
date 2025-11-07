@@ -8,11 +8,10 @@ INSERT INTO foo SELECT i, 'value' || i, CASE WHEN i % 2 = 0 THEN 'even' ELSE 'od
 CREATE INDEX idx_foo_value ON foo(value);
 CREATE INDEX idx_foo_category ON foo(category);
 
--- Show the plan
+-- Allows query execution as it uses BITMAP AND
 EXPLAIN (COSTS OFF)
 SELECT count(*) FROM foo WHERE value = 'value1' AND category = 'even';
 
--- Expect standard query execution, as it uses 'BITMAP AND'
 SELECT count(*) FROM foo WHERE value = 'value1' AND category = 'even';
 
 -- Cleanup

@@ -1,4 +1,5 @@
 -- Test schema filtering
+-- Setup
 LOAD 'pg_no_seqscan';
 SET pg_no_seqscan.level = ERROR;
 CREATE SCHEMA test_schema1;
@@ -10,10 +11,12 @@ CREATE TABLE public.baz AS (SELECT * FROM generate_series(1,10) as id);
 -- Set check_schemas to only check test_schema1 and public
 SET pg_no_seqscan.check_schemas = 'test_schema1,public';
 
--- This should be ignored due to schema not in check_schemas setting
+-- Allows query execution as test_schema2 is not in check_schemas setting
+EXPLAIN (COSTS OFF) SELECT * FROM test_schema2.bar;
 SELECT * FROM test_schema2.bar;
 
--- These should error
+-- Blocks query execution as test_schema1 is not in check_schemas setting
+EXPLAIN (COSTS OFF) SELECT * FROM test_schema1.foo;
 SELECT * FROM test_schema1.foo;
 
 -- Cleanup

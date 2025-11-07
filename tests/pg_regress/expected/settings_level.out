@@ -10,7 +10,7 @@ EXPLAIN (COSTS OFF) SELECT * FROM basic_seqscan;
  Seq Scan on basic_seqscan
 (1 row)
 
--- Level OFF should ignore seqscans
+-- Allows query execution without warning as level is OFF
 SET pg_no_seqscan.level = OFF;
 SELECT * FROM basic_seqscan;
  id 
@@ -27,7 +27,7 @@ SELECT * FROM basic_seqscan;
  10
 (10 rows)
 
--- Level WARN should warn on seqscans
+-- Allows query execution and print a warning as level is WARN
 SET pg_no_seqscan.level = WARN;
 SELECT * FROM basic_seqscan;
 NOTICE:  A 'Sequential Scan' on basic_seqscan has been detected.
@@ -50,7 +50,7 @@ Query: SELECT * FROM basic_seqscan;
  10
 (10 rows)
 
--- Level ERROR should error on seqscans
+-- Blocks query execution as level is ERROR
 SET pg_no_seqscan.level = ERROR;
 SELECT * FROM basic_seqscan; -- This should fail
 ERROR:  A 'Sequential Scan' on basic_seqscan has been detected.

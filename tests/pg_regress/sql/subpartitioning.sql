@@ -1,4 +1,5 @@
 -- Test partitioning support
+-- Setup
 LOAD 'pg_no_seqscan';
 SET pg_no_seqscan.level = ERROR;
 SET enable_seqscan = off;
@@ -10,17 +11,23 @@ CREATE TABLE partitioned_foo_2_2 PARTITION OF partitioned_foo_2 FOR VALUES FROM 
 
 INSERT INTO partitioned_foo SELECT i FROM generate_series(1, 10) i;
 
-select id, tableoid::regclass from partitioned_foo order by id /*pg_no_seqscan_skip*/;
+CREATE INDEX on partitioned_foo_1 USING btree (id);
 
-create index on partitioned_foo_1 USING btree (id);
+-- show data distribution
+SELECT id, tableoid::regclass from partitioned_foo ORDER BY id /*pg_no_seqscan_skip*/;
 
-explain (costs off) select id, tableoid::regclass from partitioned_foo order by id;
+-- Blocks query execution as no table settings are defined
+EXPLAIN (COSTS OFF) SELECT id, tableoid::regclass from partitioned_foo ORDER BY id;
+SELECT id, tableoid::regclass from partitioned_foo ORDER BY id;
 
--- when no rules are defined, the seq scan should be blocked
-select id, tableoid::regclass from partitioned_foo order by id;
-
--- when only the root table is checked, seq scan should be blocked
+-- Blocks query execution as root table appears in check_tables settings
 SET pg_no_seqscan.check_tables = 'partitioned_foo';
-select id, tableoid::regclass from partitioned_foo order by id;
+SELECT id, tableoid::regclass from partitioned_foo ORDER BY id;
 
+-- Allows query execution as root table appears in ignore_tables settings
+RESET pg_no_seqscan.check_tables;
+SET pg_no_seqscan.ignore_tables = 'partitioned_foo';
+SELECT id, tableoid::regclass from partitioned_foo ORDER BY id;
+
+-- Cleanup
 DROP TABLE partitioned_foo cascade;

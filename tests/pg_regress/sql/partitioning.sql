@@ -1,4 +1,5 @@
 -- Test partitioning support
+-- Setup
 LOAD 'pg_no_seqscan';
 SET pg_no_seqscan.level = ERROR;
 CREATE TABLE partitioned_foo (id bigint) PARTITION BY RANGE (id);
@@ -7,22 +8,20 @@ CREATE TABLE partitioned_foo_2 PARTITION OF partitioned_foo FOR VALUES FROM (5) 
 
 SET pg_no_seqscan.check_tables = 'partitioned_foo';
 
--- Querying parent should error
+-- Blocks query execution and report seqscan on the parent table as a seqscan is made on each partition
 EXPLAIN (COSTS OFF) SELECT * FROM partitioned_foo;
 SELECT * FROM partitioned_foo;
 
--- Querying directly a partition should be detected as well
+-- Blocks query execution and report seqscan on the parent table even when querying directly a partition
 EXPLAIN (COSTS OFF) SELECT * FROM partitioned_foo_1;
 SELECT * FROM partitioned_foo_1;
 
 RESET pg_no_seqscan.check_tables;
 SET pg_no_seqscan.ignore_tables = 'partitioned_foo';
 
-
--- But now parent table is ignored, seq scan is allowed
--- on partition table:
+-- Allows query execution with seqscan on the parent table as the partitioned table is ignored
 SELECT * FROM partitioned_foo;
--- on partition:
+-- Allows query execution with seqscan on the partition as the partitioned table is ignored
 SELECT * FROM partitioned_foo_1;
 
 -- cleanup

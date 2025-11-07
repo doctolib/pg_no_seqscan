@@ -1,4 +1,5 @@
 -- Test subquery detection
+-- Setup
 LOAD 'pg_no_seqscan';
 SET pg_no_seqscan.level = ERROR;
 SET enable_seqscan = off;
@@ -6,7 +7,7 @@ CREATE TABLE test_subq AS (SELECT * FROM generate_series(1,10) as id);
 
 CREATE INDEX test_subq_idx ON test_subq(id) where id = 2;
 
--- Other subquery with seaq scan on the right branch should fail
+-- Blocks query execution as a seqscan occur in first branch
 EXPLAIN (COSTS OFF)
 SELECT * FROM test_subq where id = 2
 EXCEPT
@@ -16,7 +17,7 @@ SELECT * FROM test_subq where id = 2
 EXCEPT
 SELECT * FROM test_subq;
 
--- Other subquery with seq scan on the left branch should fail
+-- Blocks query execution as a seqscan occur in second branch
 EXPLAIN (COSTS OFF)
 SELECT * FROM test_subq
 EXCEPT

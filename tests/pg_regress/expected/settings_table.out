@@ -1,9 +1,9 @@
 -- Test table filtering with ignore_tables and check_tables
+-- Setup
 LOAD 'pg_no_seqscan';
 SET pg_no_seqscan.level = ERROR;
 CREATE TABLE foo (id serial);
 CREATE TABLE bar (id serial);
-CREATE TABLE baz (id serial);
 EXPLAIN (COSTS OFF) SELECT * FROM foo;
    QUERY PLAN    
 -----------------
@@ -16,25 +16,14 @@ EXPLAIN (COSTS OFF) SELECT * FROM bar;
  Seq Scan on bar
 (1 row)
 
-EXPLAIN (COSTS OFF) SELECT * FROM baz;
-   QUERY PLAN    
------------------
- Seq Scan on baz
-(1 row)
-
--- Test ignore_tables
-SET pg_no_seqscan.ignore_tables = 'something,foo,baz';
--- Only bar should error
+SET pg_no_seqscan.ignore_tables = 'something,foo';
+-- Allows query execution as foo is in ignore_tables setting
 SELECT * FROM foo;
  id 
 ----
 (0 rows)
 
-SELECT * FROM baz;
- id 
-----
-(0 rows)
-
+-- Blocks query execution as bar is not in ignore_tables setting
 SELECT * FROM bar;
 ERROR:  A 'Sequential Scan' on bar has been detected.
   - Run an EXPLAIN on your query to check the query plan.
@@ -42,11 +31,10 @@ ERROR:  A 'Sequential Scan' on bar has been detected.
 
 Query: SELECT * FROM bar;
 
--- Reset for next test
+-- Testing now check_tables
 RESET pg_no_seqscan.ignore_tables;
--- Test check_tables
-SET pg_no_seqscan.check_tables = 'something,foo,baz';
--- Error expected on foo and baz only
+SET pg_no_seqscan.check_tables = 'something,foo';
+-- Blocks query execution as foo is in check_tables setting
 SELECT * FROM foo;
 ERROR:  A 'Sequential Scan' on foo has been detected.
   - Run an EXPLAIN on your query to check the query plan.
@@ -54,18 +42,12 @@ ERROR:  A 'Sequential Scan' on foo has been detected.
 
 Query: SELECT * FROM foo;
 
+-- Allows query execution as bar is not in check_tables setting
 SELECT * FROM bar;
  id 
 ----
 (0 rows)
 
-SELECT * FROM baz;
-ERROR:  A 'Sequential Scan' on baz has been detected.
-  - Run an EXPLAIN on your query to check the query plan.
-  - Make sure the query is compatible with the existing indexes.
-
-Query: SELECT * FROM baz;
-
 -- Cleanup
-DROP TABLE foo, bar, baz;
+DROP TABLE foo, bar;
 RESET pg_no_seqscan.check_tables;

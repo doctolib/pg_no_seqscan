@@ -3,10 +3,10 @@
 LOAD 'pg_no_seqscan';
 SET pg_no_seqscan.level = ERROR;
 CREATE SEQUENCE test_seq;
--- Show plan:
+
+-- Allows query execution as it's allowed to seqscan a sequence
 EXPLAIN (COSTS OFF)
 SELECT last_value FROM test_seq;
--- Querying a sequence should not cause error
 SELECT last_value FROM test_seq;
 
 -- cleanup

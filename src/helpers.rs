@@ -59,15 +59,15 @@ pub unsafe fn get_parent_table_oid(table_oid: Oid) -> Option<Oid> {
         return None;
     }
 
-    Spi::get_one::<Oid>(&format!(
-        "with recursive inheritance (oid, child_oid) AS (
-select {}::regclass, null::oid
-union all
-select inhparent, oid from inheritance
-           left join pg_inherits on inheritance.oid = inhrelid
-                 where inheritance.oid is not null
+    Spi::get_one::<Oid>(&format!("
+WITH RECURSIVE inheritance (oid, child_oid) AS (
+    SELECT {}::regclass, null::oid
+    UNION ALL
+    SELECT inhparent, oid FROM inheritance
+    LEFT JOIN pg_inherits ON inheritance.oid = inhrelid
+    WHERE inheritance.oid IS NOT NULL
 )
-select child_oid::regclass as root_partition from inheritance where child_oid IS NOT NULL AND oid is null",
+SELECT child_oid::regclass AS root_partition FROM inheritance WHERE child_oid IS NOT NULL AND oid IS NULL",
         table_oid
     ))
     .ok()

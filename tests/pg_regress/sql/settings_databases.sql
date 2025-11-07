@@ -5,24 +5,22 @@ SET pg_no_seqscan.level = ERROR;
 
 CREATE TABLE test_db AS (SELECT * FROM generate_series(1,10) as id);
 
--- Show the plan
-EXPLAIN (COSTS OFF) SELECT * FROM test_db;
-
--- Empty check_databases should check all databases
+-- Blocks query execution as check_databases is empty thus all databases are checked
 SET pg_no_seqscan.check_databases = '';
+EXPLAIN (COSTS OFF) SELECT * FROM test_db;
 SELECT * FROM test_db; -- Should error
 
--- Non-matching database should be ignored
--- Note: regress tests run in database named 'contrib_regression' or similar
+-- Allows query execution as check_databases is not set to the current database
 SET pg_no_seqscan.check_databases = 'postgres';
 SELECT * FROM test_db; -- Should pass
 
--- Matching database should be checked
--- Note: current database depends on the test runner, that's why we use this hack to not return it.
+
+-- Current database depends on the test runner (ex: contrib_regression) that's why we use this hack to not return the database name in the output.
 SELECT ''
 EXCEPT
 SELECT set_config('pg_no_seqscan.check_databases', current_database(), false);
 
+-- Blocks query execution as check_databases is not set to the current database
 SELECT * FROM test_db; -- Should error
 
 -- Cleanup
