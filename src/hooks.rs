@@ -36,14 +36,11 @@ impl NoSeqscanHooks {
         let ps = plannedstmt_ref.unwrap();
 
         self.check_plan_recursively(ps.planTree, ps.rtable);
+
+        // Queries with CTEs generate subplans
         if !ps.subplans.is_null() {
-            // Queries with CTEs generate subplans
             unsafe {
-                for i in 0..(*ps.subplans).length {
-                    if let Some(cell) = pg_sys::list_nth_cell(ps.subplans, i).as_ref() {
-                        self.check_plan_recursively(cell.ptr_value as *mut Plan, ps.rtable);
-                    }
-                }
+                self.check_plan_list(ps.subplans, ps.rtable);
             }
         }
 
@@ -60,19 +57,24 @@ impl NoSeqscanHooks {
             self.check_current_node(plan, rtables);
 
             if node.type_ == T_Append {
-                let subplans = (*(plan as *mut Append)).appendplans;
-                for i in 0..(*subplans).length {
-                    if let Some(cell) = pg_sys::list_nth_cell(subplans, i).as_ref() {
-                        self.check_plan_recursively(cell.ptr_value as *mut Plan, rtables);
-                    }
-                }
+                self.check_plan_list((*(plan as *mut Append)).appendplans, rtables);
             } else if node.type_ == T_SubqueryScan {
-                let subquery = (plan as *mut SubqueryScan).as_ref().unwrap();
-                self.check_plan_recursively(subquery.subplan, rtables);
+                self.check_plan_recursively(
+                    (plan as *mut SubqueryScan).as_ref().unwrap().subplan,
+                    rtables,
+                );
             }
 
             self.check_plan_recursively(node.lefttree, rtables);
             self.check_plan_recursively(node.righttree, rtables);
+        }
+    }
+
+    unsafe fn check_plan_list(&mut self, subplans: *mut List, rtables: *mut List) {
+        for i in 0..(*subplans).length {
+            if let Some(cell) = pg_sys::list_nth_cell(subplans, i).as_ref() {
+                self.check_plan_recursively(cell.ptr_value as *mut Plan, rtables);
+            }
         }
     }
 
@@ -205,11 +207,9 @@ Query: {}
         self.tables_in_seqscans.push(report_table_name.clone());
     }
 
-    fn is_sequence(&self, relation_oid: Oid) -> bool {
-        unsafe {
-            let relation = PgRelation::open(relation_oid);
-            (*relation.rd_rel).relkind == (pg_sys::RELKIND_SEQUENCE as c_char)
-        }
+    unsafe fn is_sequence(&self, relation_oid: Oid) -> bool {
+        let relation = PgRelation::open(relation_oid);
+        (*relation.rd_rel).relkind == (pg_sys::RELKIND_SEQUENCE as c_char)
     }
 
     fn reset_tables_and_stmt_type(&mut self, mut pstmt: PgBox<pg_sys::PlannedStmt>) {
