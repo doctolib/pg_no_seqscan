@@ -56,13 +56,13 @@ impl NoSeqscanHooks {
 
             self.check_current_node(plan, rtables);
 
-            if node.type_ == T_Append {
-                self.check_plan_list((*(plan as *mut Append)).appendplans, rtables);
-            } else if node.type_ == T_SubqueryScan {
-                self.check_plan_recursively(
+            match node.type_ {
+                T_Append => self.check_plan_list((*(plan as *mut Append)).appendplans, rtables),
+                T_SubqueryScan => self.check_plan_recursively(
                     (plan as *mut SubqueryScan).as_ref().unwrap().subplan,
                     rtables,
-                );
+                ),
+                _ => {}
             }
 
             self.check_plan_recursively(node.lefttree, rtables);
