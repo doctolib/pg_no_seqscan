@@ -77,7 +77,7 @@ pub fn register_gucs() {
     GucRegistry::define_string_guc(
         c"pg_no_seqscan.ignore_tables",
         c"Tables to ignore, comma separated",
-        c"This setting is ignored if some tables are declared in `check_tables`",
+        c"This setting is ignored if some tables are declared in `check_tables`. For partitions, mention the partitioned table.",
         &PG_NO_SEQSCAN_IGNORE_TABLES,
         GucContext::Suset,
         GucFlags::SUPERUSER_ONLY,
