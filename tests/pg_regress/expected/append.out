@@ -21,7 +21,7 @@ EXPLAIN (COSTS OFF) (SELECT * FROM test_for_append ORDER BY id LIMIT 1) UNION AL
 (9 rows)
 
 (SELECT * FROM test_for_append ORDER BY id LIMIT 1) UNION ALL (SELECT * FROM test_for_append ORDER BY id desc LIMIT 1);
-ERROR:  A 'Sequential Scan' on test_for_append,test_for_append has been detected.
+ERROR:  A 'Sequential Scan' on test_for_append has been detected.
   - Run an EXPLAIN on your query to check the query plan.
   - Make sure the query is compatible with the existing indexes.
 

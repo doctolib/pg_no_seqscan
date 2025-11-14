@@ -18,7 +18,7 @@ EXPLAIN (COSTS OFF) UPDATE upd_foo SET value = (SELECT value FROM upd_bar WHERE 
 (5 rows)
 
 UPDATE upd_foo SET value = (SELECT value FROM upd_bar WHERE upd_bar.id = upd_foo.id);
-ERROR:  A 'Sequential Scan' on upd_foo,upd_bar has been detected.
+ERROR:  A 'Sequential Scan' on upd_bar,upd_foo has been detected.
   - Run an EXPLAIN on your query to check the query plan.
   - Make sure the query is compatible with the existing indexes.
 
