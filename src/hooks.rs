@@ -14,13 +14,14 @@ use crate::helpers::{
 };
 use pgrx::pg_sys::ffi::pg_guard_ffi_boundary;
 use pgrx::pg_sys::NodeTag::T_SubqueryScan;
+use std::collections::HashSet;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 
 #[derive(Clone)]
 pub struct NoSeqscanHooks {
     pub is_explain_stmt: bool,
-    pub tables_in_seqscans: Vec<String>,
+    pub tables_in_seqscans: HashSet<String>,
 }
 
 impl NoSeqscanHooks {
@@ -79,6 +80,8 @@ impl NoSeqscanHooks {
     }
 
     fn report_seqscan(&self, query_string: &str) {
+        let mut tables: Vec<_> = self.tables_in_seqscans.iter().cloned().collect();
+        tables.sort();
         let message = format!(
             "A 'Sequential Scan' on {} has been detected.
   - Run an EXPLAIN on your query to check the query plan.
@@ -86,7 +89,7 @@ impl NoSeqscanHooks {
 
 Query: {}
 ",
-            self.tables_in_seqscans.join(","),
+            tables.join(","),
             query_string
         );
         match guc::PG_NO_SEQSCAN_LEVEL.get() {
@@ -204,7 +207,7 @@ Query: {}
             return;
         }
 
-        self.tables_in_seqscans.push(report_table_name.clone());
+        self.tables_in_seqscans.insert(report_table_name.clone());
     }
 
     unsafe fn is_sequence(&self, relation_oid: Oid) -> bool {
@@ -219,7 +222,7 @@ Query: {}
             unsafe {
                 HOOK_OPTION = Some(NoSeqscanHooks {
                     is_explain_stmt,
-                    tables_in_seqscans: Vec::new(),
+                    tables_in_seqscans: HashSet::new(),
                 });
             };
         }
@@ -232,7 +235,7 @@ Query: {}
         unsafe {
             HOOK_OPTION = Some(NoSeqscanHooks {
                 is_explain_stmt: false,
-                tables_in_seqscans: Vec::new(),
+                tables_in_seqscans: HashSet::new(),
             });
         }
 
@@ -262,7 +265,7 @@ pub static mut HOOK_OPTION: Option<NoSeqscanHooks> = None;
 pub unsafe fn init_hooks() {
     HOOK_OPTION = Some(NoSeqscanHooks {
         is_explain_stmt: false,
-        tables_in_seqscans: Vec::new(),
+        tables_in_seqscans: HashSet::new(),
     });
 
     static mut PREV_EXECUTOR_START: pg_sys::ExecutorStart_hook_type = None;

@@ -23,7 +23,7 @@ SELECT * FROM complex_query_foo JOIN complex_query_bar ON complex_query_foo.id =
 (10 rows)
 
 SELECT * FROM complex_query_foo JOIN complex_query_bar ON complex_query_foo.id = complex_query_bar.id;
-ERROR:  A 'Sequential Scan' on complex_query_foo,complex_query_bar has been detected.
+ERROR:  A 'Sequential Scan' on complex_query_bar,complex_query_foo has been detected.
   - Run an EXPLAIN on your query to check the query plan.
   - Make sure the query is compatible with the existing indexes.
 
