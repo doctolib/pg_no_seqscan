@@ -1,17 +1,19 @@
 use crate::guc;
 use pgrx::pg_sys::{
-    CmdType, DestReceiver, List, NodeTag::T_SeqScan, Oid, ParamListInfo, Plan, PlannedStmt,
-    ProcessUtilityContext, QueryCompletion, QueryDesc, QueryEnvironment, SeqScan,
+    Append, CmdType, DestReceiver, List, NodeTag::T_Append, NodeTag::T_SeqScan, Oid, ParamListInfo,
+    Plan, PlannedStmt, ProcessUtilityContext, QueryCompletion, QueryDesc, QueryEnvironment,
+    SeqScan, SubqueryScan,
 };
 use pgrx::{error, notice, pg_guard, pg_sys, PgBox, PgRelation};
 use regex::Regex;
 
 use crate::guc::DetectionLevelEnum;
 use crate::helpers::{
-    comma_separated_list_contains, current_db_name, current_username, resolve_namespace_name,
-    resolve_table_name, scanned_table,
+    comma_separated_list_contains, current_db_name, current_username, get_parent_table_oid,
+    resolve_namespace_name, resolve_table_name, scanned_table,
 };
 use pgrx::pg_sys::ffi::pg_guard_ffi_boundary;
+use pgrx::pg_sys::NodeTag::T_SubqueryScan;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 
@@ -32,7 +34,15 @@ impl NoSeqscanHooks {
         }
 
         let ps = plannedstmt_ref.unwrap();
+
         self.check_plan_recursively(ps.planTree, ps.rtable);
+
+        // Queries with CTEs generate subplans
+        if !ps.subplans.is_null() {
+            unsafe {
+                self.check_plan_list(ps.subplans, ps.rtable);
+            }
+        }
 
         if !self.tables_in_seqscans.is_empty() && !self.is_ignored_query_for_comment(&query_string)
         {
@@ -42,10 +52,28 @@ impl NoSeqscanHooks {
 
     fn check_plan_recursively(&mut self, plan: *mut Plan, rtables: *mut List) {
         unsafe {
-            if let Some(node) = plan.as_ref() {
-                self.check_current_node(plan, rtables);
-                self.check_plan_recursively(node.lefttree, rtables);
-                self.check_plan_recursively(node.righttree, rtables);
+            let Some(node) = plan.as_ref() else { return };
+
+            self.check_current_node(plan, rtables);
+
+            match node.type_ {
+                T_Append => self.check_plan_list((*(plan as *mut Append)).appendplans, rtables),
+                T_SubqueryScan => self.check_plan_recursively(
+                    (plan as *mut SubqueryScan).as_ref().unwrap().subplan,
+                    rtables,
+                ),
+                _ => {}
+            }
+
+            self.check_plan_recursively(node.lefttree, rtables);
+            self.check_plan_recursively(node.righttree, rtables);
+        }
+    }
+
+    unsafe fn check_plan_list(&mut self, subplans: *mut List, rtables: *mut List) {
+        for i in 0..(*subplans).length {
+            if let Some(cell) = pg_sys::list_nth_cell(subplans, i).as_ref() {
+                self.check_plan_recursively(cell.ptr_value as *mut Plan, rtables);
             }
         }
     }
@@ -161,24 +189,27 @@ Query: {}
             return;
         }
 
-        let table_name = resolve_table_name(table_oid).expect("Failed to resolve table name");
+        // Check if this table is a partition, and if so, use the parent table name
+        let report_table_name = if let Some(parent_oid) = get_parent_table_oid(table_oid) {
+            resolve_table_name(parent_oid).expect("Failed to resolve parent table name")
+        } else {
+            resolve_table_name(table_oid).expect("Failed to resolve table name")
+        };
 
-        if !self.is_checked_table(table_name.clone()) {
+        if !self.is_checked_table(report_table_name.clone()) {
             return;
         }
 
-        if !self.check_tables_options_is_set() && self.is_ignored_table(table_name.clone()) {
+        if !self.check_tables_options_is_set() && self.is_ignored_table(report_table_name.clone()) {
             return;
         }
 
-        self.tables_in_seqscans.push(table_name.clone());
+        self.tables_in_seqscans.push(report_table_name.clone());
     }
 
-    fn is_sequence(&self, relation_oid: Oid) -> bool {
-        unsafe {
-            let relation = PgRelation::open(relation_oid);
-            (*relation.rd_rel).relkind == (pg_sys::RELKIND_SEQUENCE as c_char)
-        }
+    unsafe fn is_sequence(&self, relation_oid: Oid) -> bool {
+        let relation = PgRelation::open(relation_oid);
+        (*relation.rd_rel).relkind == (pg_sys::RELKIND_SEQUENCE as c_char)
     }
 
     fn reset_tables_and_stmt_type(&mut self, mut pstmt: PgBox<pg_sys::PlannedStmt>) {

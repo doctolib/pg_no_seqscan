@@ -13,9 +13,9 @@ SELECT * FROM test_explain;
 
 -- Allows query execution as it is an EXPLAIN ANALYZE, as it may be useful to understand the plan
 EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF, BUFFERS OFF) SELECT * FROM test_explain;
-                    QUERY PLAN                     
----------------------------------------------------
- Seq Scan on test_explain (actual rows=10 loops=1)
+                      QUERY PLAN                      
+------------------------------------------------------
+ Seq Scan on test_explain (actual rows=10.00 loops=1)
 (1 row)
 
 -- Blocks query execution as this is the real query

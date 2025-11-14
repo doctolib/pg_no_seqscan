@@ -15,10 +15,12 @@ SELECT * FROM complex_query_foo JOIN complex_query_bar ON complex_query_foo.id =
    ->  Sort
          Sort Key: complex_query_foo.id
          ->  Seq Scan on complex_query_foo
+               Disabled: true
    ->  Sort
          Sort Key: complex_query_bar.id
          ->  Seq Scan on complex_query_bar
-(8 rows)
+               Disabled: true
+(10 rows)
 
 SELECT * FROM complex_query_foo JOIN complex_query_bar ON complex_query_foo.id = complex_query_bar.id;
 ERROR:  A 'Sequential Scan' on complex_query_foo,complex_query_bar has been detected.
@@ -36,9 +38,10 @@ SELECT * FROM complex_query_foo JOIN complex_query_bar ON complex_query_foo.id =
  Hash Join
    Hash Cond: (complex_query_bar.id = complex_query_foo.id)
    ->  Seq Scan on complex_query_bar
+         Disabled: true
    ->  Hash
          ->  Index Only Scan using foo_idx on complex_query_foo
-(5 rows)
+(6 rows)
 
 SELECT * FROM complex_query_foo JOIN complex_query_bar ON complex_query_foo.id = complex_query_bar.id;
 ERROR:  A 'Sequential Scan' on complex_query_bar has been detected.

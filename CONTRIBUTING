@@ -20,3 +20,21 @@ in "${PGRX_HOME}/data-$PGVER/postgresql.conf" and add this at the end of the fil
     # Recommended to have logs with `tail -f ~/.pgrx/data-15/log/postgresql.log`
     logging_collector = on
     log_filename = 'postgresql.log'
+
+## Regression tests
+
+We rely on [pg_regress](https://github.com/pgcentralfoundation/pgrx/blob/develop/cargo-pgrx/README.md#testing-with-regression-tests)
+to run tests.
+
+This repository supports to have different test output depending on the pg version. If a test needs that:
+- define the common output in `expected/<test>.out`
+- override the output of specific version in a filename suffixed by the major pg version, ex: `expected/<test>.out.pg18`
+
+### Generate expected from docker
+
+To run expected from docker and avoid the installation of postgres locally:
+
+- start the docker: `docker run --rm -it -v "$(pwd):/workspace" -w /workspace pgxn/pgxn-tools bash`
+- install pg: `pg-start 18` replace 18 with or the version of your choice
+- install cargo and pgrx, build the extension, launch tests: `pgrx-build-test`
+- just run test again: `make installcheck PGUSER=postgres`

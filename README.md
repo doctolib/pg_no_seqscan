@@ -62,6 +62,7 @@ jit_above_cost = 40000000000                  # avoids to use jit on each query,
 #pg_no_seqscan.check_tables = ''              # Tables to check seqscan for, comma separated.
                                               # Useful when only wanting to check some tables.
                                               # If empty, all tables will be checked.
+                                              # For partitions, mention the partitioned table.
 
 #pg_no_seqscan.ignore_users = ''              # Users to ignore, comma separated.
                                               # Useful to ignore:
@@ -72,6 +73,7 @@ jit_above_cost = 40000000000                  # avoids to use jit on each query,
 #pg_no_seqscan.ignore_tables = ''             # Tables to ignore, comma separated.
                                               # Useful for tables that will remain small and that do not need any index.
                                               # This setting is ignored if some tables are declared in `check_tables`.
+                                              # For partitions, mention the partitioned table.
 
 #pg_no_seqscan.level = 'Error'                # Detection level for sequential scans:
                                               #   Error: force query to fail when the query will cause a seqscan

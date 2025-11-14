@@ -1,5 +1,6 @@
 use pgrx::pg_sys;
 use pgrx::pg_sys::{get_namespace_name, get_rel_name, get_rel_namespace, rt_fetch, List, Oid};
+use pgrx::{PgRelation, Spi};
 use std::ffi::{c_char, CStr, CString};
 
 pub fn extract_comma_separated_setting(comma_separated_string: CString) -> Vec<String> {
@@ -50,5 +51,25 @@ pub unsafe fn current_db_name() -> String {
 
 pub unsafe fn current_username() -> String {
     let current_user = unsafe { pg_sys::GetUserNameFromId(pg_sys::GetUserId(), true) };
-    string_from_ptr(current_user).unwrap()
+    string_from_ptr(current_user).expect("Failed to get username")
+}
+
+pub unsafe fn get_parent_table_oid(table_oid: Oid) -> Option<Oid> {
+    if !(*PgRelation::open(table_oid).rd_rel).relispartition {
+        return None;
+    }
+
+    Spi::get_one::<Oid>(&format!("
+WITH RECURSIVE inheritance (oid, child_oid) AS (
+    SELECT {}::regclass, null::oid
+    UNION ALL
+    SELECT inhparent, oid FROM inheritance
+    LEFT JOIN pg_inherits ON inheritance.oid = inhrelid
+    WHERE inheritance.oid IS NOT NULL
+)
+SELECT child_oid::regclass AS root_partition FROM inheritance WHERE child_oid IS NOT NULL AND oid IS NULL",
+        table_oid
+    ))
+    .ok()
+    .flatten()
 }

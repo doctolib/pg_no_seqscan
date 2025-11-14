@@ -24,6 +24,8 @@ jobs:
         run: pg-start ${{ matrix.pg }}
       - name: Check out the repo - PG ${{ matrix.pg }}
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - name: Prepare test expectations
+        run: tests/pg_regress/load_expected_overrides ${{ matrix.pg }}
       - name: 🧪 Test - PG ${{ matrix.pg }}
         run: pgrx-build-test
       - name: 📎 Clippy - PG ${{ matrix.pg }}
