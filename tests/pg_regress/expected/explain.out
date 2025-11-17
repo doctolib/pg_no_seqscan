@@ -20,11 +20,22 @@ EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF, BUFFERS OFF) SELECT * FROM
 
 -- Blocks query execution as this is the real query
 SELECT * FROM test_explain;
-ERROR:  A 'Sequential Scan' on test_explain has been detected.
-  - Run an EXPLAIN on your query to check the query plan.
-  - Make sure the query is compatible with the existing indexes.
+ERROR:  A 'Sequential Scan' has been detected:
 
-Query: SELECT * FROM test_explain;
+  - Tables involved:
+
+  test_explain
+
+  - Query:
+
+  SELECT * FROM test_explain;
+
+  - Query plan:
+
+  Seq Scan on test_explain
+
+
+Make sure the query is compatible with the existing indexes.
 
 -- cleanup
 drop table test_explain;

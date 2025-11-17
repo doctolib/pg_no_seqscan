@@ -1,8 +1,8 @@
 use crate::guc;
 use pgrx::pg_sys::{
-    Append, CmdType, DestReceiver, List, NodeTag::T_Append, NodeTag::T_SeqScan, Oid, ParamListInfo,
-    Plan, PlannedStmt, ProcessUtilityContext, QueryCompletion, QueryDesc, QueryEnvironment,
-    SeqScan, SubqueryScan,
+    Append, CmdType, DestReceiver, ExplainPrintPlan, List, NewExplainState, NodeTag::T_Append,
+    NodeTag::T_SeqScan, Oid, ParamListInfo, Plan, PlannedStmt, ProcessUtilityContext,
+    QueryCompletion, QueryDesc, QueryEnvironment, SeqScan, SubqueryScan,
 };
 use pgrx::{error, notice, pg_guard, pg_sys, PgBox, PgRelation};
 use regex::Regex;
@@ -47,7 +47,15 @@ impl NoSeqscanHooks {
 
         if !self.tables_in_seqscans.is_empty() && !self.is_ignored_query_for_comment(&query_string)
         {
-            self.report_seqscan(&query_string);
+            unsafe {
+                let explain_state = NewExplainState();
+                (*explain_state).costs = false;
+                ExplainPrintPlan(explain_state, query_desc.as_ptr());
+                let explain_output = std::ffi::CStr::from_ptr((*(*explain_state).str_).data)
+                    .to_str()
+                    .unwrap_or("Invalid UTF-8 in query plan");
+                self.report_seqscan(&query_string, explain_output);
+            }
         }
     }
 
@@ -79,18 +87,29 @@ impl NoSeqscanHooks {
         }
     }
 
-    fn report_seqscan(&self, query_string: &str) {
+    fn report_seqscan(&self, query_string: &str, explain_output: &str) {
         let mut tables: Vec<_> = self.tables_in_seqscans.iter().cloned().collect();
         tables.sort();
         let message = format!(
-            "A 'Sequential Scan' on {} has been detected.
-  - Run an EXPLAIN on your query to check the query plan.
-  - Make sure the query is compatible with the existing indexes.
+            "A 'Sequential Scan' has been detected:
 
-Query: {}
+  - Tables involved:
+
+  {}
+
+  - Query:
+
+  {}
+
+  - Query plan:
+
+  {}
+
+Make sure the query is compatible with the existing indexes.
 ",
-            tables.join(","),
-            query_string
+            tables.join("\n"),
+            query_string,
+            explain_output,
         );
         match guc::PG_NO_SEQSCAN_LEVEL.get() {
             DetectionLevelEnum::Warn => notice!("{message}"),
@@ -281,6 +300,7 @@ pub unsafe fn init_hooks() {
         query_desc: *mut QueryDesc,
         eflags: ::core::ffi::c_int,
     ) {
+        pg_sys::standard_ExecutorStart(query_desc, eflags);
         if guc::PG_NO_SEQSCAN_LEVEL.get() != DetectionLevelEnum::Off {
             HOOK_OPTION
                 .as_mut()
@@ -289,8 +309,6 @@ pub unsafe fn init_hooks() {
         }
         if let Some(prev_hook) = PREV_EXECUTOR_START {
             pg_guard_ffi_boundary(|| prev_hook(query_desc, eflags));
-        } else {
-            pg_sys::standard_ExecutorStart(query_desc, eflags);
         }
     }
 

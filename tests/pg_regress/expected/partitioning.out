@@ -16,11 +16,24 @@ EXPLAIN (COSTS OFF) SELECT * FROM partitioned_foo;
 (3 rows)
 
 SELECT * FROM partitioned_foo;
-ERROR:  A 'Sequential Scan' on partitioned_foo has been detected.
-  - Run an EXPLAIN on your query to check the query plan.
-  - Make sure the query is compatible with the existing indexes.
+ERROR:  A 'Sequential Scan' has been detected:
 
-Query: SELECT * FROM partitioned_foo;
+  - Tables involved:
+
+  partitioned_foo
+
+  - Query:
+
+  SELECT * FROM partitioned_foo;
+
+  - Query plan:
+
+  Append
+  ->  Seq Scan on partitioned_foo_1
+  ->  Seq Scan on partitioned_foo_2
+
+
+Make sure the query is compatible with the existing indexes.
 
 -- Blocks query execution and report seqscan on the parent table even when querying directly a partition
 EXPLAIN (COSTS OFF) SELECT * FROM partitioned_foo_1;
@@ -30,11 +43,22 @@ EXPLAIN (COSTS OFF) SELECT * FROM partitioned_foo_1;
 (1 row)
 
 SELECT * FROM partitioned_foo_1;
-ERROR:  A 'Sequential Scan' on partitioned_foo has been detected.
-  - Run an EXPLAIN on your query to check the query plan.
-  - Make sure the query is compatible with the existing indexes.
+ERROR:  A 'Sequential Scan' has been detected:
 
-Query: SELECT * FROM partitioned_foo_1;
+  - Tables involved:
+
+  partitioned_foo
+
+  - Query:
+
+  SELECT * FROM partitioned_foo_1;
+
+  - Query plan:
+
+  Seq Scan on partitioned_foo_1
+
+
+Make sure the query is compatible with the existing indexes.
 
 RESET pg_no_seqscan.check_tables;
 SET pg_no_seqscan.ignore_tables = 'partitioned_foo';

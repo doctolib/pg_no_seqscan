@@ -21,11 +21,30 @@ SELECT * FROM complex_query_foo JOIN complex_query_bar ON complex_query_foo.id =
 (8 rows)
 
 SELECT * FROM complex_query_foo JOIN complex_query_bar ON complex_query_foo.id = complex_query_bar.id;
-ERROR:  A 'Sequential Scan' on complex_query_bar,complex_query_foo has been detected.
-  - Run an EXPLAIN on your query to check the query plan.
-  - Make sure the query is compatible with the existing indexes.
+ERROR:  A 'Sequential Scan' has been detected:
 
-Query: SELECT * FROM complex_query_foo JOIN complex_query_bar ON complex_query_foo.id = complex_query_bar.id;
+  - Tables involved:
+
+  complex_query_bar
+complex_query_foo
+
+  - Query:
+
+  SELECT * FROM complex_query_foo JOIN complex_query_bar ON complex_query_foo.id = complex_query_bar.id;
+
+  - Query plan:
+
+  Merge Join
+  Merge Cond: (complex_query_foo.id = complex_query_bar.id)
+  ->  Sort
+        Sort Key: complex_query_foo.id
+        ->  Seq Scan on complex_query_foo
+  ->  Sort
+        Sort Key: complex_query_bar.id
+        ->  Seq Scan on complex_query_bar
+
+
+Make sure the query is compatible with the existing indexes.
 
 create index foo_idx on complex_query_foo(id);
 -- Blocks query execution as seqscan is done on bar in one part of the join
@@ -41,11 +60,26 @@ SELECT * FROM complex_query_foo JOIN complex_query_bar ON complex_query_foo.id =
 (5 rows)
 
 SELECT * FROM complex_query_foo JOIN complex_query_bar ON complex_query_foo.id = complex_query_bar.id;
-ERROR:  A 'Sequential Scan' on complex_query_bar has been detected.
-  - Run an EXPLAIN on your query to check the query plan.
-  - Make sure the query is compatible with the existing indexes.
+ERROR:  A 'Sequential Scan' has been detected:
 
-Query: SELECT * FROM complex_query_foo JOIN complex_query_bar ON complex_query_foo.id = complex_query_bar.id;
+  - Tables involved:
+
+  complex_query_bar
+
+  - Query:
+
+  SELECT * FROM complex_query_foo JOIN complex_query_bar ON complex_query_foo.id = complex_query_bar.id;
+
+  - Query plan:
+
+  Hash Join
+  Hash Cond: (complex_query_bar.id = complex_query_foo.id)
+  ->  Seq Scan on complex_query_bar
+  ->  Hash
+        ->  Index Only Scan using foo_idx on complex_query_foo
+
+
+Make sure the query is compatible with the existing indexes.
 
 -- Cleanup
 DROP TABLE complex_query_foo, complex_query_bar;
