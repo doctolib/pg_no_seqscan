@@ -39,11 +39,13 @@ EXPLAIN (COSTS OFF) SELECT * FROM test_schema1.foo;
 (1 row)
 
 SELECT * FROM test_schema1.foo;
-ERROR:  A 'Sequential Scan' on foo has been detected.
-  - Run an EXPLAIN on your query to check the query plan.
-  - Make sure the query is compatible with the existing indexes.
+ERROR:  A 'Sequential Scan' has been detected. Make sure the query is compatible with the existing indexes.
+  - Tables involved: foo
+  - Query: SELECT * FROM test_schema1.foo;
+  - Query plan:
 
-Query: SELECT * FROM test_schema1.foo;
+  Seq Scan on foo
+
 
 -- Cleanup
 DROP TABLE test_schema1.foo, test_schema2.bar, public.baz;

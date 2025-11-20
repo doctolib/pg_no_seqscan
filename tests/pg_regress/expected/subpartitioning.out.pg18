@@ -41,20 +41,38 @@ EXPLAIN (COSTS OFF) SELECT id, tableoid::regclass from partitioned_foo ORDER BY 
 (8 rows)
 
 SELECT id, tableoid::regclass from partitioned_foo ORDER BY id;
-ERROR:  A 'Sequential Scan' on partitioned_foo has been detected.
-  - Run an EXPLAIN on your query to check the query plan.
-  - Make sure the query is compatible with the existing indexes.
+ERROR:  A 'Sequential Scan' has been detected. Make sure the query is compatible with the existing indexes.
+  - Tables involved: partitioned_foo
+  - Query: SELECT id, tableoid::regclass from partitioned_foo ORDER BY id;
+  - Query plan:
 
-Query: SELECT id, tableoid::regclass from partitioned_foo ORDER BY id;
+  Sort
+  Sort Key: partitioned_foo.id
+  ->  Append
+        ->  Index Scan using partitioned_foo_1_id_idx on partitioned_foo_1
+        ->  Seq Scan on partitioned_foo_2_1 partitioned_foo_2
+              Disabled: true
+        ->  Seq Scan on partitioned_foo_2_2 partitioned_foo_3
+              Disabled: true
+
 
 -- Blocks query execution as root table appears in check_tables settings
 SET pg_no_seqscan.check_tables = 'partitioned_foo';
 SELECT id, tableoid::regclass from partitioned_foo ORDER BY id;
-ERROR:  A 'Sequential Scan' on partitioned_foo has been detected.
-  - Run an EXPLAIN on your query to check the query plan.
-  - Make sure the query is compatible with the existing indexes.
+ERROR:  A 'Sequential Scan' has been detected. Make sure the query is compatible with the existing indexes.
+  - Tables involved: partitioned_foo
+  - Query: SELECT id, tableoid::regclass from partitioned_foo ORDER BY id;
+  - Query plan:
 
-Query: SELECT id, tableoid::regclass from partitioned_foo ORDER BY id;
+  Sort
+  Sort Key: partitioned_foo.id
+  ->  Append
+        ->  Index Scan using partitioned_foo_1_id_idx on partitioned_foo_1
+        ->  Seq Scan on partitioned_foo_2_1 partitioned_foo_2
+              Disabled: true
+        ->  Seq Scan on partitioned_foo_2_2 partitioned_foo_3
+              Disabled: true
+
 
 -- Allows query execution as root table appears in ignore_tables settings
 RESET pg_no_seqscan.check_tables;
