@@ -23,17 +23,10 @@ SELECT * FROM complex_query_foo JOIN complex_query_bar ON complex_query_foo.id =
 (10 rows)
 
 SELECT * FROM complex_query_foo JOIN complex_query_bar ON complex_query_foo.id = complex_query_bar.id;
-ERROR:  A 'Sequential Scan' has been detected:
-
-  - Tables involved:
-
-  complex_query_bar
+ERROR:  A 'Sequential Scan' has been detected. Make sure the query is compatible with the existing indexes.
+  - Tables involved: complex_query_bar
 complex_query_foo
-
-  - Query:
-
-  SELECT * FROM complex_query_foo JOIN complex_query_bar ON complex_query_foo.id = complex_query_bar.id;
-
+  - Query: SELECT * FROM complex_query_foo JOIN complex_query_bar ON complex_query_foo.id = complex_query_bar.id;
   - Query plan:
 
   Merge Join
@@ -47,8 +40,6 @@ complex_query_foo
         ->  Seq Scan on complex_query_bar
               Disabled: true
 
-
-Make sure the query is compatible with the existing indexes.
 
 create index foo_idx on complex_query_foo(id);
 -- Blocks query execution as seqscan is done on bar in one part of the join
@@ -65,16 +56,9 @@ SELECT * FROM complex_query_foo JOIN complex_query_bar ON complex_query_foo.id =
 (6 rows)
 
 SELECT * FROM complex_query_foo JOIN complex_query_bar ON complex_query_foo.id = complex_query_bar.id;
-ERROR:  A 'Sequential Scan' has been detected:
-
-  - Tables involved:
-
-  complex_query_bar
-
-  - Query:
-
-  SELECT * FROM complex_query_foo JOIN complex_query_bar ON complex_query_foo.id = complex_query_bar.id;
-
+ERROR:  A 'Sequential Scan' has been detected. Make sure the query is compatible with the existing indexes.
+  - Tables involved: complex_query_bar
+  - Query: SELECT * FROM complex_query_foo JOIN complex_query_bar ON complex_query_foo.id = complex_query_bar.id;
   - Query plan:
 
   Hash Join
@@ -84,8 +68,6 @@ ERROR:  A 'Sequential Scan' has been detected:
   ->  Hash
         ->  Index Only Scan using foo_idx on complex_query_foo
 
-
-Make sure the query is compatible with the existing indexes.
 
 -- Cleanup
 DROP TABLE complex_query_foo, complex_query_bar;
