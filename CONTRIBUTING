@@ -38,3 +38,8 @@ To run expected from docker and avoid the installation of postgres locally:
 - install pg: `pg-start 18` replace 18 with or the version of your choice
 - install cargo and pgrx, build the extension, launch tests: `pgrx-build-test`
 - just run test again: `make installcheck PGUSER=postgres`
+
+## Update the documentation
+
+Make sure the documentation remains up to date and add your changes in the `CHANGELOG.md` file,
+in a heading `## [Unreleased]` section.
