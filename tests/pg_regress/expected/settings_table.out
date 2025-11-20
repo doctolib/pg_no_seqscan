@@ -25,44 +25,26 @@ SELECT * FROM foo;
 
 -- Blocks query execution as bar is not in ignore_tables setting
 SELECT * FROM bar;
-ERROR:  A 'Sequential Scan' has been detected:
-
-  - Tables involved:
-
-  bar
-
-  - Query:
-
-  SELECT * FROM bar;
-
+ERROR:  A 'Sequential Scan' has been detected. Make sure the query is compatible with the existing indexes.
+  - Tables involved: bar
+  - Query: SELECT * FROM bar;
   - Query plan:
 
   Seq Scan on bar
 
-
-Make sure the query is compatible with the existing indexes.
 
 -- Testing now check_tables
 RESET pg_no_seqscan.ignore_tables;
 SET pg_no_seqscan.check_tables = 'something,foo';
 -- Blocks query execution as foo is in check_tables setting
 SELECT * FROM foo;
-ERROR:  A 'Sequential Scan' has been detected:
-
-  - Tables involved:
-
-  foo
-
-  - Query:
-
-  SELECT * FROM foo;
-
+ERROR:  A 'Sequential Scan' has been detected. Make sure the query is compatible with the existing indexes.
+  - Tables involved: foo
+  - Query: SELECT * FROM foo;
   - Query plan:
 
   Seq Scan on foo
 
-
-Make sure the query is compatible with the existing indexes.
 
 -- Allows query execution as bar is not in check_tables setting
 SELECT * FROM bar;

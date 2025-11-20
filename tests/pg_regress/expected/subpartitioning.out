@@ -39,16 +39,9 @@ EXPLAIN (COSTS OFF) SELECT id, tableoid::regclass from partitioned_foo ORDER BY 
 (6 rows)
 
 SELECT id, tableoid::regclass from partitioned_foo ORDER BY id;
-ERROR:  A 'Sequential Scan' has been detected:
-
-  - Tables involved:
-
-  partitioned_foo
-
-  - Query:
-
-  SELECT id, tableoid::regclass from partitioned_foo ORDER BY id;
-
+ERROR:  A 'Sequential Scan' has been detected. Make sure the query is compatible with the existing indexes.
+  - Tables involved: partitioned_foo
+  - Query: SELECT id, tableoid::regclass from partitioned_foo ORDER BY id;
   - Query plan:
 
   Sort
@@ -58,22 +51,13 @@ ERROR:  A 'Sequential Scan' has been detected:
         ->  Seq Scan on partitioned_foo_2_1 partitioned_foo_2
         ->  Seq Scan on partitioned_foo_2_2 partitioned_foo_3
 
-
-Make sure the query is compatible with the existing indexes.
 
 -- Blocks query execution as root table appears in check_tables settings
 SET pg_no_seqscan.check_tables = 'partitioned_foo';
 SELECT id, tableoid::regclass from partitioned_foo ORDER BY id;
-ERROR:  A 'Sequential Scan' has been detected:
-
-  - Tables involved:
-
-  partitioned_foo
-
-  - Query:
-
-  SELECT id, tableoid::regclass from partitioned_foo ORDER BY id;
-
+ERROR:  A 'Sequential Scan' has been detected. Make sure the query is compatible with the existing indexes.
+  - Tables involved: partitioned_foo
+  - Query: SELECT id, tableoid::regclass from partitioned_foo ORDER BY id;
   - Query plan:
 
   Sort
@@ -83,8 +67,6 @@ ERROR:  A 'Sequential Scan' has been detected:
         ->  Seq Scan on partitioned_foo_2_1 partitioned_foo_2
         ->  Seq Scan on partitioned_foo_2_2 partitioned_foo_3
 
-
-Make sure the query is compatible with the existing indexes.
 
 -- Allows query execution as root table appears in ignore_tables settings
 RESET pg_no_seqscan.check_tables;

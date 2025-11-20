@@ -12,22 +12,13 @@ EXPLAIN (COSTS OFF) SELECT * FROM test_db;
 (1 row)
 
 SELECT * FROM test_db; -- Should error
-ERROR:  A 'Sequential Scan' has been detected:
-
-  - Tables involved:
-
-  test_db
-
-  - Query:
-
-  SELECT * FROM test_db;
-
+ERROR:  A 'Sequential Scan' has been detected. Make sure the query is compatible with the existing indexes.
+  - Tables involved: test_db
+  - Query: SELECT * FROM test_db;
   - Query plan:
 
   Seq Scan on test_db
 
-
-Make sure the query is compatible with the existing indexes.
 
 -- Allows query execution as check_databases is not set to the current database
 SET pg_no_seqscan.check_databases = 'postgres';
@@ -57,22 +48,13 @@ SELECT set_config('pg_no_seqscan.check_databases', current_database(), false);
 
 -- Blocks query execution as check_databases is not set to the current database
 SELECT * FROM test_db; -- Should error
-ERROR:  A 'Sequential Scan' has been detected:
-
-  - Tables involved:
-
-  test_db
-
-  - Query:
-
-  SELECT * FROM test_db;
-
+ERROR:  A 'Sequential Scan' has been detected. Make sure the query is compatible with the existing indexes.
+  - Tables involved: test_db
+  - Query: SELECT * FROM test_db;
   - Query plan:
 
   Seq Scan on test_db
 
-
-Make sure the query is compatible with the existing indexes.
 
 -- Cleanup
 DROP TABLE test_db;

@@ -13,22 +13,13 @@ EXPLAIN (COSTS OFF) SELECT * FROM test_user_table;
 (1 row)
 
 SELECT * FROM test_user_table;
-ERROR:  A 'Sequential Scan' has been detected:
-
-  - Tables involved:
-
-  test_user_table
-
-  - Query:
-
-  SELECT * FROM test_user_table;
-
+ERROR:  A 'Sequential Scan' has been detected. Make sure the query is compatible with the existing indexes.
+  - Tables involved: test_user_table
+  - Query: SELECT * FROM test_user_table;
   - Query plan:
 
   Seq Scan on test_user_table
 
-
-Make sure the query is compatible with the existing indexes.
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE test_user_table TO test_user;
 SET SESSION AUTHORIZATION test_user;

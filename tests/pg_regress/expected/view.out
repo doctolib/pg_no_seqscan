@@ -13,22 +13,13 @@ SELECT * FROM test_view;
 (1 row)
 
 SELECT * FROM test_view;
-ERROR:  A 'Sequential Scan' has been detected:
-
-  - Tables involved:
-
-  test_view_table
-
-  - Query:
-
-  SELECT * FROM test_view;
-
+ERROR:  A 'Sequential Scan' has been detected. Make sure the query is compatible with the existing indexes.
+  - Tables involved: test_view_table
+  - Query: SELECT * FROM test_view;
   - Query plan:
 
   Seq Scan on test_view_table
 
-
-Make sure the query is compatible with the existing indexes.
 
 -- Cleanup
 DROP VIEW test_view;

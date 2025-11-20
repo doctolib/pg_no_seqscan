@@ -91,21 +91,12 @@ impl NoSeqscanHooks {
         let mut tables: Vec<_> = self.tables_in_seqscans.iter().cloned().collect();
         tables.sort();
         let message = format!(
-            "A 'Sequential Scan' has been detected:
-
-  - Tables involved:
-
-  {}
-
-  - Query:
-
-  {}
-
+            "A 'Sequential Scan' has been detected. Make sure the query is compatible with the existing indexes.
+  - Tables involved: {}
+  - Query: {}
   - Query plan:
 
   {}
-
-Make sure the query is compatible with the existing indexes.
 ",
             tables.join("\n"),
             query_string,

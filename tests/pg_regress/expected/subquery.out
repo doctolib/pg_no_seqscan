@@ -23,18 +23,11 @@ SELECT * FROM test_subq;
 SELECT * FROM test_subq where id = 2
 EXCEPT
 SELECT * FROM test_subq;
-ERROR:  A 'Sequential Scan' has been detected:
-
-  - Tables involved:
-
-  test_subq
-
-  - Query:
-
-  SELECT * FROM test_subq where id = 2
+ERROR:  A 'Sequential Scan' has been detected. Make sure the query is compatible with the existing indexes.
+  - Tables involved: test_subq
+  - Query: SELECT * FROM test_subq where id = 2
 EXCEPT
 SELECT * FROM test_subq;
-
   - Query plan:
 
   HashSetOp Except
@@ -44,8 +37,6 @@ SELECT * FROM test_subq;
         ->  Subquery Scan on "*SELECT* 2"
               ->  Seq Scan on test_subq test_subq_1
 
-
-Make sure the query is compatible with the existing indexes.
 
 -- Blocks query execution as a seqscan occur in second branch
 EXPLAIN (COSTS OFF)
@@ -65,18 +56,11 @@ SELECT * FROM test_subq where id = 2;
 SELECT * FROM test_subq
 EXCEPT
 SELECT * FROM test_subq where id = 2;
-ERROR:  A 'Sequential Scan' has been detected:
-
-  - Tables involved:
-
-  test_subq
-
-  - Query:
-
-  SELECT * FROM test_subq
+ERROR:  A 'Sequential Scan' has been detected. Make sure the query is compatible with the existing indexes.
+  - Tables involved: test_subq
+  - Query: SELECT * FROM test_subq
 EXCEPT
 SELECT * FROM test_subq where id = 2;
-
   - Query plan:
 
   HashSetOp Except
@@ -86,8 +70,6 @@ SELECT * FROM test_subq where id = 2;
         ->  Subquery Scan on "*SELECT* 2"
               ->  Index Only Scan using test_subq_idx on test_subq test_subq_1
 
-
-Make sure the query is compatible with the existing indexes.
 
 -- Cleanup
 DROP TABLE test_subq;

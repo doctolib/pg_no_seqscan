@@ -30,22 +30,13 @@ SELECT * FROM basic_seqscan;
 -- Allows query execution and print a warning as level is WARN
 SET pg_no_seqscan.level = WARN;
 SELECT * FROM basic_seqscan;
-NOTICE:  A 'Sequential Scan' has been detected:
-
-  - Tables involved:
-
-  basic_seqscan
-
-  - Query:
-
-  SELECT * FROM basic_seqscan;
-
+NOTICE:  A 'Sequential Scan' has been detected. Make sure the query is compatible with the existing indexes.
+  - Tables involved: basic_seqscan
+  - Query: SELECT * FROM basic_seqscan;
   - Query plan:
 
   Seq Scan on basic_seqscan
 
-
-Make sure the query is compatible with the existing indexes.
 
  id 
 ----
@@ -64,22 +55,13 @@ Make sure the query is compatible with the existing indexes.
 -- Blocks query execution as level is ERROR
 SET pg_no_seqscan.level = ERROR;
 SELECT * FROM basic_seqscan; -- This should fail
-ERROR:  A 'Sequential Scan' has been detected:
-
-  - Tables involved:
-
-  basic_seqscan
-
-  - Query:
-
-  SELECT * FROM basic_seqscan;
-
+ERROR:  A 'Sequential Scan' has been detected. Make sure the query is compatible with the existing indexes.
+  - Tables involved: basic_seqscan
+  - Query: SELECT * FROM basic_seqscan;
   - Query plan:
 
   Seq Scan on basic_seqscan
 
-
-Make sure the query is compatible with the existing indexes.
 
 -- Cleanup
 DROP TABLE basic_seqscan;

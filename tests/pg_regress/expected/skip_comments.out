@@ -12,22 +12,13 @@ SELECT * FROM test_skip;
 (1 row)
 
 SELECT * FROM test_skip;
-ERROR:  A 'Sequential Scan' has been detected:
-
-  - Tables involved:
-
-  test_skip
-
-  - Query:
-
-  SELECT * FROM test_skip;
-
+ERROR:  A 'Sequential Scan' has been detected. Make sure the query is compatible with the existing indexes.
+  - Tables involved: test_skip
+  - Query: SELECT * FROM test_skip;
   - Query plan:
 
   Seq Scan on test_skip
 
-
-Make sure the query is compatible with the existing indexes.
 
 -- Allows query execution despite the seqscan as pg_no_seqscan_skip comment is present
 SELECT * FROM test_skip /* pg_no_seqscan_skip */;

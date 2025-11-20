@@ -17,16 +17,9 @@ WITH cte AS MATERIALIZED (SELECT * FROM test_cte LIMIT 10) SELECT * FROM cte ORD
 (6 rows)
 
 WITH cte AS MATERIALIZED (SELECT * FROM test_cte LIMIT 10) SELECT * FROM cte;
-ERROR:  A 'Sequential Scan' has been detected:
-
-  - Tables involved:
-
-  test_cte
-
-  - Query:
-
-  WITH cte AS MATERIALIZED (SELECT * FROM test_cte LIMIT 10) SELECT * FROM cte;
-
+ERROR:  A 'Sequential Scan' has been detected. Make sure the query is compatible with the existing indexes.
+  - Tables involved: test_cte
+  - Query: WITH cte AS MATERIALIZED (SELECT * FROM test_cte LIMIT 10) SELECT * FROM cte;
   - Query plan:
 
   CTE Scan on cte
@@ -34,8 +27,6 @@ ERROR:  A 'Sequential Scan' has been detected:
     ->  Limit
           ->  Seq Scan on test_cte
 
-
-Make sure the query is compatible with the existing indexes.
 
 -- Cleanup
 DROP TABLE test_cte;
