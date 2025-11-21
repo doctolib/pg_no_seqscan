@@ -1,8 +1,8 @@
 use crate::guc;
 use pgrx::pg_sys::{
-    Append, CmdType, DestReceiver, ExplainPrintPlan, List, NewExplainState, NodeTag::T_Append,
-    NodeTag::T_SeqScan, Oid, ParamListInfo, Plan, PlannedStmt, ProcessUtilityContext,
-    QueryCompletion, QueryDesc, QueryEnvironment, SeqScan, SubqueryScan,
+    Append, CmdType, ExplainPrintPlan, List, NewExplainState, NodeTag::T_Append,
+    NodeTag::T_SeqScan, Oid, Plan,
+    QueryDesc, SeqScan, SubqueryScan, EXEC_FLAG_EXPLAIN_ONLY
 };
 use pgrx::{error, notice, pg_guard, pg_sys, PgBox, PgRelation};
 use regex::Regex;
@@ -225,19 +225,6 @@ impl NoSeqscanHooks {
         (*relation.rd_rel).relkind == (pg_sys::RELKIND_SEQUENCE as c_char)
     }
 
-    fn reset_tables_and_stmt_type(&mut self, mut pstmt: PgBox<pg_sys::PlannedStmt>) {
-        let node: &mut pg_sys::Node = unsafe { &mut *(pstmt.utilityStmt) };
-        let is_explain_stmt = node.type_ == pg_sys::NodeTag::T_ExplainStmt;
-        if is_explain_stmt {
-            unsafe {
-                HOOK_OPTION = Some(NoSeqscanHooks {
-                    is_explain_stmt,
-                    tables_in_seqscans: HashSet::new(),
-                });
-            };
-        }
-    }
-
     #[allow(static_mut_refs)]
     fn check_query_plan(&mut self, query_desc: PgBox<QueryDesc>) {
         let is_explain_stmt = unsafe { HOOK_OPTION.as_ref().unwrap().is_explain_stmt };
@@ -282,17 +269,20 @@ pub unsafe fn init_hooks() {
     PREV_EXECUTOR_START = pg_sys::ExecutorStart_hook;
     pg_sys::ExecutorStart_hook = Some(executor_start_hook);
 
-    static mut PREV_PROCESS_UTILITY: pg_sys::ProcessUtility_hook_type = None;
-    PREV_PROCESS_UTILITY = pg_sys::ProcessUtility_hook;
-    pg_sys::ProcessUtility_hook = Some(process_utility_hook);
-
     #[pg_guard]
     unsafe extern "C-unwind" fn executor_start_hook(
         query_desc: *mut QueryDesc,
         eflags: ::core::ffi::c_int,
     ) {
         pg_sys::standard_ExecutorStart(query_desc, eflags);
-        if guc::PG_NO_SEQSCAN_LEVEL.get() != DetectionLevelEnum::Off {
+        let query_desc_box = PgBox::from_pg(query_desc);
+        let is_explain_only = (eflags & EXEC_FLAG_EXPLAIN_ONLY as i32) != 0;
+        // In postgres code if es->analyze then at least INSTRUMENT_ROWS is set
+        let has_any_instrumentation = query_desc_box.instrument_options != 0;
+        // Skip if it's EXPLAIN (with or without ANALYZE)
+        let is_explain_context = is_explain_only || has_any_instrumentation;
+
+        if guc::PG_NO_SEQSCAN_LEVEL.get() != DetectionLevelEnum::Off  && !is_explain_context {
             HOOK_OPTION
                 .as_mut()
                 .unwrap()
@@ -303,48 +293,4 @@ pub unsafe fn init_hooks() {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
-    #[pg_guard]
-    unsafe extern "C-unwind" fn process_utility_hook(
-        pstmt: *mut PlannedStmt,
-        query_string: *const ::core::ffi::c_char,
-        read_only_tree: bool,
-        context: ProcessUtilityContext::Type,
-        params: ParamListInfo,
-        query_env: *mut QueryEnvironment,
-        dest: *mut DestReceiver,
-        qc: *mut QueryCompletion,
-    ) {
-        if guc::PG_NO_SEQSCAN_LEVEL.get() != DetectionLevelEnum::Off {
-            HOOK_OPTION
-                .as_mut()
-                .unwrap()
-                .reset_tables_and_stmt_type(PgBox::from_pg(pstmt));
-        }
-        if let Some(prev_hook) = PREV_PROCESS_UTILITY {
-            pg_guard_ffi_boundary(|| {
-                prev_hook(
-                    pstmt,
-                    query_string,
-                    read_only_tree,
-                    context,
-                    params,
-                    query_env,
-                    dest,
-                    qc,
-                )
-            });
-        } else {
-            pg_sys::standard_ProcessUtility(
-                pstmt,
-                query_string,
-                read_only_tree,
-                context,
-                params,
-                query_env,
-                dest,
-                qc,
-            )
-        }
-    }
 }
