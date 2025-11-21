@@ -20,7 +20,6 @@ use std::os::raw::c_char;
 
 #[derive(Clone)]
 pub struct NoSeqscanHooks {
-    pub is_explain_stmt: bool,
     pub tables_in_seqscans: HashSet<String>,
 }
 
@@ -227,11 +226,9 @@ impl NoSeqscanHooks {
 
     #[allow(static_mut_refs)]
     fn check_query_plan(&mut self, query_desc: PgBox<QueryDesc>) {
-        let is_explain_stmt = unsafe { HOOK_OPTION.as_ref().unwrap().is_explain_stmt };
         // reset hook state
         unsafe {
             HOOK_OPTION = Some(NoSeqscanHooks {
-                is_explain_stmt: false,
                 tables_in_seqscans: HashSet::new(),
             });
         }
@@ -241,13 +238,13 @@ impl NoSeqscanHooks {
             | CmdType::CMD_UPDATE
             | CmdType::CMD_INSERT
             | CmdType::CMD_DELETE => {
-                if !is_explain_stmt && !self.is_ignored_user(unsafe { current_username() }) {
+                if !self.is_ignored_user(unsafe { current_username() }) {
                     self.check_query(&query_desc);
                 }
             }
             #[cfg(not(any(feature = "pg14")))]
             CmdType::CMD_MERGE => {
-                if !is_explain_stmt && !self.is_ignored_user(unsafe { current_username() }) {
+                if !self.is_ignored_user(unsafe { current_username() }) {
                     self.check_query(&query_desc);
                 }
             }
@@ -261,7 +258,6 @@ pub static mut HOOK_OPTION: Option<NoSeqscanHooks> = None;
 #[allow(deprecated, static_mut_refs)]
 pub unsafe fn init_hooks() {
     HOOK_OPTION = Some(NoSeqscanHooks {
-        is_explain_stmt: false,
         tables_in_seqscans: HashSet::new(),
     });
 
