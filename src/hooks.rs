@@ -1,8 +1,7 @@
 use crate::guc;
 use pgrx::pg_sys::{
     Append, CmdType, ExplainPrintPlan, List, NewExplainState, NodeTag::T_Append,
-    NodeTag::T_SeqScan, Oid, Plan,
-    QueryDesc, SeqScan, SubqueryScan, EXEC_FLAG_EXPLAIN_ONLY
+    NodeTag::T_SeqScan, Oid, Plan, QueryDesc, SeqScan, SubqueryScan, EXEC_FLAG_EXPLAIN_ONLY,
 };
 use pgrx::{error, notice, pg_guard, pg_sys, PgBox, PgRelation};
 use regex::Regex;
@@ -278,7 +277,7 @@ pub unsafe fn init_hooks() {
         // Skip if it's EXPLAIN (with or without ANALYZE)
         let is_explain_context = is_explain_only || has_any_instrumentation;
 
-        if guc::PG_NO_SEQSCAN_LEVEL.get() != DetectionLevelEnum::Off  && !is_explain_context {
+        if guc::PG_NO_SEQSCAN_LEVEL.get() != DetectionLevelEnum::Off && !is_explain_context {
             HOOK_OPTION
                 .as_mut()
                 .unwrap()
@@ -288,5 +287,4 @@ pub unsafe fn init_hooks() {
             pg_guard_ffi_boundary(|| prev_hook(query_desc, eflags));
         }
     }
-
 }
