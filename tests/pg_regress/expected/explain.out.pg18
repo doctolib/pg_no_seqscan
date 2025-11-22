@@ -19,18 +19,6 @@ EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF, BUFFERS OFF) SELECT * FROM
 (1 row)
 
 -- Allows query execution as it is an EXPLAIN ANALYZE, even for parallel queries
-SET force_parallel_mode = on;
-ERROR:  unrecognized configuration parameter "force_parallel_mode"
-EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF, BUFFERS OFF) select count(*) from test_explain;
-                         QUERY PLAN                         
-------------------------------------------------------------
- Aggregate (actual rows=1.00 loops=1)
-   ->  Seq Scan on test_explain (actual rows=10.00 loops=1)
-(2 rows)
-
-SET force_parallel_mode = off;
-ERROR:  unrecognized configuration parameter "force_parallel_mode"
--- Allows query execution as it is an EXPLAIN ANALYZE, even for parallel queries
 SET parallel_setup_cost = 0;
 SET parallel_tuple_cost = 0.000001;
 CREATE TABLE test_explain_parallel (id, migrated_at) AS (SELECT generate_series(1, 800000)::bigint id, null::timestamp without time zone);
