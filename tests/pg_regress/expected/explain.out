@@ -18,6 +18,23 @@ EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF, BUFFERS OFF) SELECT * FROM
  Seq Scan on test_explain (actual rows=10 loops=1)
 (1 row)
 
+-- Allows query execution as it is an EXPLAIN ANALYZE, even for parallel queries
+SET parallel_setup_cost = 0;
+SET parallel_tuple_cost = 0.000001;
+CREATE TABLE test_explain_parallel (id, migrated_at) AS (SELECT generate_series(1, 800000)::bigint id, null::text);
+EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF, BUFFERS OFF) select count(*) from test_explain_parallel;
+                                        QUERY PLAN                                         
+-------------------------------------------------------------------------------------------
+ Finalize Aggregate (actual rows=1 loops=1)
+   ->  Gather (actual rows=3 loops=1)
+         Workers Planned: 2
+         Workers Launched: 2
+         ->  Partial Aggregate (actual rows=1 loops=3)
+               ->  Parallel Seq Scan on test_explain_parallel (actual rows=266667 loops=3)
+(6 rows)
+
+SET parallel_setup_cost TO DEFAULT;
+SET parallel_tuple_cost TO DEFAULT;
 -- Blocks query execution as this is the real query
 SELECT * FROM test_explain;
 ERROR:  A 'Sequential Scan' has been detected. Make sure the query is compatible with the existing indexes.
@@ -30,3 +47,4 @@ ERROR:  A 'Sequential Scan' has been detected. Make sure the query is compatible
 
 -- cleanup
 drop table test_explain;
+drop table test_explain_parallel;
