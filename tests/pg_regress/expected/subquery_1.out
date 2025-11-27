@@ -1,8 +1,8 @@
 -- Test subquery detection
-select Substr(setting, 1, 2) = '18' from pg_settings where name = 'server_version_num'; -- output changed slightly from PG18
- ?column? 
-----------
- t
+SELECT 'Before PG 18?', setting::int / 10000 < 18 from pg_settings where name = 'server_version_num' ; -- output changed slightly from PG18
+   ?column?    | ?column? 
+---------------+----------
+ Before PG 18? | f
 (1 row)
 
 -- Setup
