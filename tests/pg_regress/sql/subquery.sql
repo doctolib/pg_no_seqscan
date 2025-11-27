@@ -1,4 +1,5 @@
 -- Test subquery detection
+select Substr(setting, 1, 2) = '18' from pg_settings where name = 'server_version_num'; -- output changed slightly from PG18
 -- Setup
 LOAD 'pg_no_seqscan';
 SET pg_no_seqscan.level = ERROR;
