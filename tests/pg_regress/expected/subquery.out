@@ -1,4 +1,10 @@
 -- Test subquery detection
+SELECT 'Before PG 18?', setting::int / 10000 < 18 from pg_settings where name = 'server_version_num' ; -- output changed slightly from PG18
+   ?column?    | ?column? 
+---------------+----------
+ Before PG 18? | t
+(1 row)
+
 -- Setup
 LOAD 'pg_no_seqscan';
 SET pg_no_seqscan.level = ERROR;
