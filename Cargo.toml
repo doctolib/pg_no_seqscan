@@ -1,6 +1,6 @@
 [package]
 name = "pg_no_seqscan"
-version = "0.1.1-alpha"
+version = "0.1.1"
 edition = "2021"
 
 [lib]
