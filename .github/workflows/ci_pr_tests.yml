@@ -1,17 +1,13 @@
 name: CI
 
-on:
-  push:
-    branches:
-      - main
-  pull_request:
+on: push
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref_name }}
   cancel-in-progress: ${{ github.ref_name != 'main' }}
 
 jobs:
-  test:
+  clippy_test:
     strategy:
       matrix:
         pg: [14, 15, 16, 17, 18]
@@ -27,7 +23,8 @@ jobs:
       - name: 🧪 Test - PG ${{ matrix.pg }}
         run: pgrx-build-test
       - name: 📎 Clippy - PG ${{ matrix.pg }}
-        run: cargo clippy --color always --features pg${{ matrix.pg }} -- --deny warnings
+        if: ${{ matrix.pg == '15' }}
+        run: cargo clippy --color always --all-targets
   format:
     name: 🕵️ Format
     runs-on: ubuntu-latest

@@ -4,13 +4,13 @@ use crate::helpers::{
     comma_separated_list_contains, current_db_name, current_username, get_parent_table_oid,
     resolve_namespace_name, resolve_table_name, scanned_table,
 };
-use pgrx::pg_sys::ffi::pg_guard_ffi_boundary;
 use pgrx::pg_sys::NodeTag::T_SubqueryScan;
+use pgrx::pg_sys::ffi::pg_guard_ffi_boundary;
 use pgrx::pg_sys::{
-    Append, CmdType, ExplainPrintPlan, List, NewExplainState, NodeTag::T_Append,
-    NodeTag::T_SeqScan, Oid, Plan, QueryDesc, SeqScan, SubqueryScan, EXEC_FLAG_EXPLAIN_ONLY,
+    Append, CmdType, EXEC_FLAG_EXPLAIN_ONLY, ExplainPrintPlan, List, NewExplainState,
+    NodeTag::T_Append, NodeTag::T_SeqScan, Oid, Plan, QueryDesc, SeqScan, SubqueryScan,
 };
-use pgrx::{error, notice, pg_guard, pg_sys, PgBox, PgRelation};
+use pgrx::{PgBox, PgRelation, error, notice, pg_guard, pg_sys};
 use regex::Regex;
 use std::collections::HashSet;
 use std::ffi::CStr;
