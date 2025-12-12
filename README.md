@@ -51,8 +51,9 @@ shared_preload_libraries = 'pg_no_seqscan.so' # Load pg_no_seqscan extension (or
 
 enable_seqscan = 'off'                        # Discourage seqscans
 
-jit_above_cost = 8e+11                        # Avoids to use jit on each query, as the cost becomes much higher with
-                                              # enable_seqscan off.
+jit_above_cost = 8e+11                        # Avoids performance degradation by discouraging jit.
+                                              # Indeed `enable_seqscan = off` increases strongly the cost and could suggest 
+                                              # pg to use jit.
                                               # It should be > {max tables or partitions scanned in on query + 1}*1e+10
 
 # Optional settings for pg_no_seqscan:
