@@ -7,24 +7,28 @@ concurrency:
   cancel-in-progress: ${{ github.ref_name != 'main' }}
 
 jobs:
-  clippy_test:
+  test:
     strategy:
       matrix:
         pg: [14, 15, 16, 17, 18]
-    name: 🐘 Tests - PG ${{ matrix.pg }}
+    name: 🧪 Test - PG ${{ matrix.pg }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     container: pgxn/pgxn-tools
     steps:
       - name: Start - PG ${{ matrix.pg }}
         run: pg-start ${{ matrix.pg }}
-      - name: Check out the repo - PG ${{ matrix.pg }}
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
-      - name: 🧪 Test - PG ${{ matrix.pg }}
-        run: pgrx-build-test
-      - name: 📎 Clippy - PG ${{ matrix.pg }}
-        if: ${{ matrix.pg == '15' }}
-        run: cargo clippy --color always --all-targets
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - run: pgrx-build-test
+  clippy:
+    name: 📎 Clippy - PG 15
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container: pgxn/pgxn-tools
+    steps:
+      - run: pg-start 15
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - run: cargo clippy --color always --all-targets
   format:
     name: 🕵️ Format
     runs-on: ubuntu-latest
