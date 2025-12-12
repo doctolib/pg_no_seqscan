@@ -1,7 +1,7 @@
 [package]
 name = "pg_no_seqscan"
 version = "0.1.1"
-edition = "2021"
+edition = "2024"
 
 [lib]
 crate-type = ["cdylib", "lib"]
@@ -38,5 +38,45 @@ codegen-units = 1
 [package.metadata.pgrx.regress]
 enabled = true
 
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(pgrx_embed)'] }
+# https://doc.rust-lang.org/beta/rustc/lints/groups.html
+[workspace.lints.rust]
+unexpected_cfgs           = { level = "warn", check-cfg = ['cfg(pgrx_embed)'] }
+deprecated-safe           = "deny"
+future-incompatible       = "deny"
+keyword-idents            = "deny"
+nonstandard-style         = "deny"
+rust-2018-idioms          = "deny"
+rust-2024-compatibility   = "deny"
+unused                    = { level = "deny", priority = -1 }
+unused_crate_dependencies = "warn"
+
+# https://rust-lang.github.io/rust-clippy/master/index.html
+[workspace.lints.clippy]
+complexity = { level = "deny", priority = -1 }
+perf       = { level = "deny", priority = -1 }
+
+# Pedentic
+inefficient_to_string = "deny"
+single_char_pattern   = "deny"
+# Style
+module_inception = "deny"
+# restriction
+panic       = "deny"
+todo        = "deny"
+unwrap_used = "deny"
+
+# restriction
+string_to_string = "warn"
+
+# Style
+doc_lazy_continuation       = "allow"
+doc_overindented_list_items = "allow"
+missing_safety_doc          = "allow"
+upper_case_acronyms         = "allow"
+# suspicious
+empty_line_after_doc_comments = "allow"
+# perf
+large_enum_variant = "allow"
+result_large_err   = "allow" # will be removed when the errors will be correctly managed
+# complexity
+too_many_arguments = "allow"

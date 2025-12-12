@@ -27,7 +27,6 @@ jobs:
       - name: 🧪 Test - PG ${{ matrix.pg }}
         run: pgrx-build-test
       - name: 📎 Clippy - PG ${{ matrix.pg }}
-        if: ${{ matrix.pg == '15' }}
         run: cargo clippy --color always -- --deny warnings --allow unexpected-cfgs
   format:
     name: 🕵️ Format
