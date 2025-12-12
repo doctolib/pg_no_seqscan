@@ -27,7 +27,7 @@ jobs:
       - name: 🧪 Test - PG ${{ matrix.pg }}
         run: pgrx-build-test
       - name: 📎 Clippy - PG ${{ matrix.pg }}
-        run: cargo clippy --color always -- --deny warnings --allow unexpected-cfgs
+        run: cargo clippy --color always --features pg${{ matrix.pg }} -- --deny warnings
   format:
     name: 🕵️ Format
     runs-on: ubuntu-latest

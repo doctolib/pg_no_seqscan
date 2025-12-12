@@ -9,7 +9,7 @@ use pgrx::prelude::*;
 #[pg_guard]
 pub extern "C-unwind" fn _PG_init() {
     guc::register_gucs();
-    unsafe { hooks::init_hooks() };
+    hooks::init_hooks();
 }
 
 /// This module is required by `cargo pgrx test` invocations.
