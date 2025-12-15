@@ -1,18 +1,17 @@
 use crate::guc;
-use pgrx::pg_sys::{
-    Append, CmdType, ExplainPrintPlan, List, NewExplainState, NodeTag::T_Append,
-    NodeTag::T_SeqScan, Oid, Plan, QueryDesc, SeqScan, SubqueryScan, EXEC_FLAG_EXPLAIN_ONLY,
-};
-use pgrx::{error, notice, pg_guard, pg_sys, PgBox, PgRelation};
-use regex::Regex;
-
 use crate::guc::DetectionLevelEnum;
 use crate::helpers::{
     comma_separated_list_contains, current_db_name, current_username, get_parent_table_oid,
     resolve_namespace_name, resolve_table_name, scanned_table,
 };
-use pgrx::pg_sys::ffi::pg_guard_ffi_boundary;
 use pgrx::pg_sys::NodeTag::T_SubqueryScan;
+use pgrx::pg_sys::ffi::pg_guard_ffi_boundary;
+use pgrx::pg_sys::{
+    Append, CmdType, EXEC_FLAG_EXPLAIN_ONLY, ExplainPrintPlan, List, NewExplainState,
+    NodeTag::T_Append, NodeTag::T_SeqScan, Oid, Plan, QueryDesc, SeqScan, SubqueryScan,
+};
+use pgrx::{PgBox, PgRelation, error, notice, pg_guard, pg_sys};
+use regex::Regex;
 use std::collections::HashSet;
 use std::ffi::CStr;
 use std::os::raw::c_char;
@@ -28,31 +27,26 @@ impl NoSeqscanHooks {
         let query_string = self.get_query_string(query_desc);
 
         let plannedstmt_ref = unsafe { query_desc.plannedstmt.as_ref() };
-        if plannedstmt_ref.is_none() {
-            return;
-        }
+        if let Some(ps) = plannedstmt_ref {
+            self.check_plan_recursively(ps.planTree, ps.rtable);
 
-        let ps = plannedstmt_ref.unwrap();
-
-        self.check_plan_recursively(ps.planTree, ps.rtable);
-
-        // Queries with CTEs generate subplans
-        if !ps.subplans.is_null() {
-            unsafe {
+            // Queries with CTEs generate subplans
+            if !ps.subplans.is_null() {
                 self.check_plan_list(ps.subplans, ps.rtable);
             }
-        }
 
-        if !self.tables_in_seqscans.is_empty() && !self.is_ignored_query_for_comment(&query_string)
-        {
-            unsafe {
-                let explain_state = NewExplainState();
-                (*explain_state).costs = false;
-                ExplainPrintPlan(explain_state, query_desc.as_ptr());
-                let explain_output = std::ffi::CStr::from_ptr((*(*explain_state).str_).data)
-                    .to_str()
-                    .unwrap_or("Invalid UTF-8 in query plan");
-                self.report_seqscan(&query_string, explain_output);
+            if !self.tables_in_seqscans.is_empty()
+                && !self.is_ignored_query_for_comment(&query_string)
+            {
+                unsafe {
+                    let explain_state = NewExplainState();
+                    (*explain_state).costs = false;
+                    ExplainPrintPlan(explain_state, query_desc.as_ptr());
+                    let explain_output = std::ffi::CStr::from_ptr((*(*explain_state).str_).data)
+                        .to_str()
+                        .unwrap_or("Invalid UTF-8 in query plan");
+                    self.report_seqscan(&query_string, explain_output);
+                }
             }
         }
     }
@@ -65,10 +59,11 @@ impl NoSeqscanHooks {
 
             match node.type_ {
                 T_Append => self.check_plan_list((*(plan as *mut Append)).appendplans, rtables),
-                T_SubqueryScan => self.check_plan_recursively(
-                    (plan as *mut SubqueryScan).as_ref().unwrap().subplan,
-                    rtables,
-                ),
+                T_SubqueryScan => {
+                    if let Some(plan) = (plan as *mut SubqueryScan).as_ref() {
+                        self.check_plan_recursively(plan.subplan, rtables)
+                    }
+                }
                 _ => {}
             }
 
@@ -77,10 +72,12 @@ impl NoSeqscanHooks {
         }
     }
 
-    unsafe fn check_plan_list(&mut self, subplans: *mut List, rtables: *mut List) {
-        for i in 0..(*subplans).length {
-            if let Some(cell) = pg_sys::list_nth_cell(subplans, i).as_ref() {
-                self.check_plan_recursively(cell.ptr_value as *mut Plan, rtables);
+    fn check_plan_list(&mut self, subplans: *mut List, rtables: *mut List) {
+        unsafe {
+            for i in 0..(*subplans).length {
+                if let Some(cell) = pg_sys::list_nth_cell(subplans, i).as_ref() {
+                    self.check_plan_recursively(cell.ptr_value as *mut Plan, rtables);
+                }
             }
         }
     }
@@ -115,8 +112,11 @@ impl NoSeqscanHooks {
     }
 
     fn is_ignored_query_for_comment(&mut self, query_string: &str) -> bool {
-        let re = Regex::new(r"/\*.*pg_no_seqscan_skip.*\*/").unwrap();
-        re.is_match(query_string)
+        let re = Regex::new(r"/\*.*pg_no_seqscan_skip.*\*/");
+        match re {
+            Ok(re) => re.is_match(query_string),
+            _ => false,
+        }
     }
 
     fn is_ignored_user(&self, current_user: String) -> bool {
@@ -125,7 +125,7 @@ impl NoSeqscanHooks {
             .map(|ignore_users_setting| {
                 comma_separated_list_contains(ignore_users_setting, current_user)
             })
-            .unwrap()
+            .unwrap_or(false)
     }
 
     fn is_checked_database(&self, database: String) -> bool {
@@ -135,7 +135,7 @@ impl NoSeqscanHooks {
                 check_databases_setting.is_empty()
                     || comma_separated_list_contains(check_databases_setting, database)
             })
-            .unwrap()
+            .unwrap_or(true)
     }
 
     fn is_checked_schema(&self, schema: String) -> bool {
@@ -145,7 +145,7 @@ impl NoSeqscanHooks {
                 check_schemas_setting.is_empty()
                     || comma_separated_list_contains(check_schemas_setting, schema)
             })
-            .unwrap()
+            .unwrap_or(true)
     }
 
     fn check_tables_options_is_set(&self) -> bool {
@@ -161,7 +161,7 @@ impl NoSeqscanHooks {
                 check_tables_setting.is_empty()
                     || comma_separated_list_contains(check_tables_setting, table_name)
             })
-            .unwrap()
+            .unwrap_or(true)
     }
 
     fn is_ignored_table(&self, table_name: String) -> bool {
@@ -170,57 +170,63 @@ impl NoSeqscanHooks {
             .map(|ignore_tables_setting| {
                 comma_separated_list_contains(ignore_tables_setting, table_name)
             })
-            .unwrap()
+            .unwrap_or(false)
     }
 
-    unsafe fn check_current_node(&mut self, node: *mut Plan, rtables: *mut List) {
-        if node.as_ref().map(|plan_ref| plan_ref.type_).unwrap() != T_SeqScan {
-            return;
+    fn check_current_node(&mut self, node: *mut Plan, rtables: *mut List) {
+        unsafe {
+            if node.as_ref().map(|plan_ref| plan_ref.type_) != Some(T_SeqScan) {
+                return;
+            }
+
+            let seq_scan: &mut SeqScan = &mut *(node as *mut SeqScan);
+            #[cfg(not(feature = "pg14"))]
+            let table_oid = scanned_table(seq_scan.scan.scanrelid, rtables)
+                .expect("Failed to get scanned table OID");
+            #[cfg(feature = "pg14")]
+            let table_oid = scanned_table(seq_scan.scanrelid, rtables)
+                .expect("Failed to get scanned table OID");
+
+            if self.is_sequence(table_oid) {
+                return;
+            }
+
+            let current_db_name = current_db_name();
+            if !self.is_checked_database(current_db_name) {
+                return;
+            }
+
+            let schema = resolve_namespace_name(table_oid).expect("Failed to resolve schema name");
+            if !self.is_checked_schema(schema) {
+                return;
+            }
+
+            // Check if this table is a partition, and if so, use the parent table name
+            let report_table_name = if let Some(parent_oid) = get_parent_table_oid(table_oid) {
+                resolve_table_name(parent_oid).expect("Failed to resolve parent table name")
+            } else {
+                resolve_table_name(table_oid).expect("Failed to resolve table name")
+            };
+
+            if !self.is_checked_table(report_table_name.clone()) {
+                return;
+            }
+
+            if !self.check_tables_options_is_set()
+                && self.is_ignored_table(report_table_name.clone())
+            {
+                return;
+            }
+
+            self.tables_in_seqscans.insert(report_table_name.clone());
         }
-
-        let seq_scan: &mut SeqScan = &mut *(node as *mut SeqScan);
-        #[cfg(not(feature = "pg14"))]
-        let table_oid = scanned_table(seq_scan.scan.scanrelid, rtables)
-            .expect("Failed to get scanned table OID");
-        #[cfg(feature = "pg14")]
-        let table_oid =
-            scanned_table(seq_scan.scanrelid, rtables).expect("Failed to get scanned table OID");
-
-        if self.is_sequence(table_oid) {
-            return;
-        }
-
-        let current_db_name = current_db_name();
-        if !self.is_checked_database(current_db_name) {
-            return;
-        }
-
-        let schema = resolve_namespace_name(table_oid).expect("Failed to resolve schema name");
-        if !self.is_checked_schema(schema) {
-            return;
-        }
-
-        // Check if this table is a partition, and if so, use the parent table name
-        let report_table_name = if let Some(parent_oid) = get_parent_table_oid(table_oid) {
-            resolve_table_name(parent_oid).expect("Failed to resolve parent table name")
-        } else {
-            resolve_table_name(table_oid).expect("Failed to resolve table name")
-        };
-
-        if !self.is_checked_table(report_table_name.clone()) {
-            return;
-        }
-
-        if !self.check_tables_options_is_set() && self.is_ignored_table(report_table_name.clone()) {
-            return;
-        }
-
-        self.tables_in_seqscans.insert(report_table_name.clone());
     }
 
-    unsafe fn is_sequence(&self, relation_oid: Oid) -> bool {
-        let relation = PgRelation::open(relation_oid);
-        (*relation.rd_rel).relkind == (pg_sys::RELKIND_SEQUENCE as c_char)
+    fn is_sequence(&self, relation_oid: Oid) -> bool {
+        unsafe {
+            let relation = PgRelation::open(relation_oid);
+            (*relation.rd_rel).relkind == (pg_sys::RELKIND_SEQUENCE as c_char)
+        }
     }
 
     #[allow(static_mut_refs)]
@@ -237,13 +243,13 @@ impl NoSeqscanHooks {
             | CmdType::CMD_UPDATE
             | CmdType::CMD_INSERT
             | CmdType::CMD_DELETE => {
-                if !self.is_ignored_user(unsafe { current_username() }) {
+                if !self.is_ignored_user(current_username()) {
                     self.check_query(&query_desc);
                 }
             }
             #[cfg(not(any(feature = "pg14")))]
             CmdType::CMD_MERGE => {
-                if !self.is_ignored_user(unsafe { current_username() }) {
+                if !self.is_ignored_user(current_username()) {
                     self.check_query(&query_desc);
                 }
             }
@@ -255,36 +261,40 @@ impl NoSeqscanHooks {
 pub static mut HOOK_OPTION: Option<NoSeqscanHooks> = None;
 
 #[allow(deprecated, static_mut_refs)]
-pub unsafe fn init_hooks() {
-    HOOK_OPTION = Some(NoSeqscanHooks {
-        tables_in_seqscans: HashSet::new(),
-    });
+pub fn init_hooks() {
+    unsafe {
+        HOOK_OPTION = Some(NoSeqscanHooks {
+            tables_in_seqscans: HashSet::new(),
+        });
 
-    static mut PREV_EXECUTOR_START: pg_sys::ExecutorStart_hook_type = None;
-    PREV_EXECUTOR_START = pg_sys::ExecutorStart_hook;
-    pg_sys::ExecutorStart_hook = Some(executor_start_hook);
+        static mut PREV_EXECUTOR_START: pg_sys::ExecutorStart_hook_type = None;
+        PREV_EXECUTOR_START = pg_sys::ExecutorStart_hook;
+        pg_sys::ExecutorStart_hook = Some(executor_start_hook);
 
-    #[pg_guard]
-    unsafe extern "C-unwind" fn executor_start_hook(
-        query_desc: *mut QueryDesc,
-        eflags: ::core::ffi::c_int,
-    ) {
-        pg_sys::standard_ExecutorStart(query_desc, eflags);
-        let query_desc_box = PgBox::from_pg(query_desc);
-        let is_explain_only = (eflags & EXEC_FLAG_EXPLAIN_ONLY as i32) != 0;
-        // In postgres code if es->analyze then at least INSTRUMENT_ROWS is set
-        let has_any_instrumentation = query_desc_box.instrument_options != 0;
-        // Skip if it's EXPLAIN (with or without ANALYZE)
-        let is_explain_context = is_explain_only || has_any_instrumentation;
+        #[pg_guard]
+        extern "C-unwind" fn executor_start_hook(
+            query_desc: *mut QueryDesc,
+            eflags: ::core::ffi::c_int,
+        ) {
+            unsafe {
+                pg_sys::standard_ExecutorStart(query_desc, eflags);
+                let query_desc_box = PgBox::from_pg(query_desc);
+                let is_explain_only = (eflags & EXEC_FLAG_EXPLAIN_ONLY as i32) != 0;
+                // In postgres code if es->analyze then at least INSTRUMENT_ROWS is set
+                let has_any_instrumentation = query_desc_box.instrument_options != 0;
+                // Skip if it's EXPLAIN (with or without ANALYZE)
+                let is_explain_context = is_explain_only || has_any_instrumentation;
 
-        if guc::PG_NO_SEQSCAN_LEVEL.get() != DetectionLevelEnum::Off && !is_explain_context {
-            HOOK_OPTION
-                .as_mut()
-                .unwrap()
-                .check_query_plan(PgBox::from_pg(query_desc));
-        }
-        if let Some(prev_hook) = PREV_EXECUTOR_START {
-            pg_guard_ffi_boundary(|| prev_hook(query_desc, eflags));
+                if guc::PG_NO_SEQSCAN_LEVEL.get() != DetectionLevelEnum::Off && !is_explain_context
+                {
+                    if let Some(hook_option) = HOOK_OPTION.as_mut() {
+                        hook_option.check_query_plan(PgBox::from_pg(query_desc));
+                    }
+                }
+                if let Some(prev_hook) = PREV_EXECUTOR_START {
+                    pg_guard_ffi_boundary(|| prev_hook(query_desc, eflags));
+                }
+            }
         }
     }
 }
