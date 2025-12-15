@@ -135,7 +135,7 @@ impl NoSeqscanHooks {
                 check_databases_setting.is_empty()
                     || comma_separated_list_contains(check_databases_setting, database)
             })
-            .unwrap_or(false)
+            .unwrap_or(true)
     }
 
     fn is_checked_schema(&self, schema: String) -> bool {
@@ -145,7 +145,7 @@ impl NoSeqscanHooks {
                 check_schemas_setting.is_empty()
                     || comma_separated_list_contains(check_schemas_setting, schema)
             })
-            .unwrap_or(false)
+            .unwrap_or(true)
     }
 
     fn check_tables_options_is_set(&self) -> bool {
@@ -161,7 +161,7 @@ impl NoSeqscanHooks {
                 check_tables_setting.is_empty()
                     || comma_separated_list_contains(check_tables_setting, table_name)
             })
-            .unwrap_or(false)
+            .unwrap_or(true)
     }
 
     fn is_ignored_table(&self, table_name: String) -> bool {
