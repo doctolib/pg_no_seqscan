@@ -47,10 +47,14 @@ cargo pgrx install -c $(which pg_config)
 
 ```
 # Required settings for pg_no_seqscan:
-shared_preload_libraries = 'pg_no_seqscan.so' # load pg_no_seqscan extension (or .dylib file on mac os)
-enable_seqscan = 'off'                        # discourage seqscans
-jit_above_cost = 40000000000                  # avoids to use jit on each query, as the cost becomes much higher with
-                                              # enable_seqscan off
+shared_preload_libraries = 'pg_no_seqscan.so' # Load pg_no_seqscan extension (or .dylib file on mac os)
+
+enable_seqscan = 'off'                        # Discourage seqscans
+
+jit_above_cost = 800000000000                 # Avoids performance degradation by discouraging jit.
+                                              # Indeed `enable_seqscan = off` increases strongly the cost 
+                                              # and could encourage PG to use jit.
+                                              # It should be > {max tables or partitions scanned in on query + 1}*1e+10
 
 # Optional settings for pg_no_seqscan:
 #pg_no_seqscan.check_databases = ''           # Databases to check seqscan for, comma separated.
