@@ -24,8 +24,6 @@ pub struct NoSeqscanHooks {
 impl NoSeqscanHooks {
     fn check_query(&mut self, query_desc: &PgBox<QueryDesc>) {
         // See PlannedStmt documentation: https://github.com/postgres/postgres/blob/master/src/include/nodes/plannodes.h#L46
-        let query_string = self.get_query_string(query_desc);
-
         let plannedstmt_ref = unsafe { query_desc.plannedstmt.as_ref() };
         if let Some(ps) = plannedstmt_ref {
             self.check_plan_recursively(ps.planTree, ps.rtable);
@@ -35,9 +33,12 @@ impl NoSeqscanHooks {
                 self.check_plan_list(ps.subplans, ps.rtable);
             }
 
-            if !self.tables_in_seqscans.is_empty()
-                && !self.is_ignored_query_for_comment(&query_string)
-            {
+            if self.tables_in_seqscans.is_empty() {
+                return;
+            }
+
+            let query_string = self.get_query_string(query_desc);
+            if !self.is_ignored_query_for_comment(&query_string) {
                 unsafe {
                     let explain_state = NewExplainState();
                     (*explain_state).costs = false;
@@ -119,7 +120,7 @@ impl NoSeqscanHooks {
         }
     }
 
-    fn is_ignored_user(&self, current_user: String) -> bool {
+    fn is_ignored_user(&self, current_user: &String) -> bool {
         guc::PG_NO_SEQSCAN_IGNORE_USERS
             .get()
             .map(|ignore_users_setting| {
@@ -128,22 +129,20 @@ impl NoSeqscanHooks {
             .unwrap_or(false)
     }
 
-    fn is_checked_database(&self, database: String) -> bool {
+    fn is_checked_database(&self, database: &String) -> bool {
         guc::PG_NO_SEQSCAN_CHECK_DATABASES
             .get()
             .map(|check_databases_setting| {
-                check_databases_setting.is_empty()
-                    || comma_separated_list_contains(check_databases_setting, database)
+                comma_separated_list_contains(check_databases_setting, database)
             })
             .unwrap_or(true)
     }
 
-    fn is_checked_schema(&self, schema: String) -> bool {
+    fn is_checked_schema(&self, schema: &String) -> bool {
         guc::PG_NO_SEQSCAN_CHECK_SCHEMAS
             .get()
             .map(|check_schemas_setting| {
-                check_schemas_setting.is_empty()
-                    || comma_separated_list_contains(check_schemas_setting, schema)
+                comma_separated_list_contains(check_schemas_setting, schema)
             })
             .unwrap_or(true)
     }
@@ -154,17 +153,16 @@ impl NoSeqscanHooks {
             .is_some_and(|tables| !tables.is_empty())
     }
 
-    fn is_checked_table(&self, table_name: String) -> bool {
+    fn is_checked_table(&self, table_name: &String) -> bool {
         guc::PG_NO_SEQSCAN_CHECK_TABLES
             .get()
             .map(|check_tables_setting| {
-                check_tables_setting.is_empty()
-                    || comma_separated_list_contains(check_tables_setting, table_name)
+                comma_separated_list_contains(check_tables_setting, table_name)
             })
             .unwrap_or(true)
     }
 
-    fn is_ignored_table(&self, table_name: String) -> bool {
+    fn is_ignored_table(&self, table_name: &String) -> bool {
         guc::PG_NO_SEQSCAN_IGNORE_TABLES
             .get()
             .map(|ignore_tables_setting| {
@@ -191,13 +189,14 @@ impl NoSeqscanHooks {
                 return;
             }
 
+            // TODO could be done once
             let current_db_name = current_db_name();
-            if !self.is_checked_database(current_db_name) {
+            if !self.is_checked_database(&current_db_name) {
                 return;
             }
 
             let schema = resolve_namespace_name(table_oid).expect("Failed to resolve schema name");
-            if !self.is_checked_schema(schema) {
+            if !self.is_checked_schema(&schema) {
                 return;
             }
 
@@ -208,17 +207,15 @@ impl NoSeqscanHooks {
                 resolve_table_name(table_oid).expect("Failed to resolve table name")
             };
 
-            if !self.is_checked_table(report_table_name.clone()) {
+            if !self.is_checked_table(&report_table_name) {
                 return;
             }
 
-            if !self.check_tables_options_is_set()
-                && self.is_ignored_table(report_table_name.clone())
-            {
+            if !self.check_tables_options_is_set() && self.is_ignored_table(&report_table_name) {
                 return;
             }
 
-            self.tables_in_seqscans.insert(report_table_name.clone());
+            self.tables_in_seqscans.insert(report_table_name);
         }
     }
 
@@ -243,13 +240,14 @@ impl NoSeqscanHooks {
             | CmdType::CMD_UPDATE
             | CmdType::CMD_INSERT
             | CmdType::CMD_DELETE => {
-                if !self.is_ignored_user(current_username()) {
+                // TODO check the username only once by backend
+                if !self.is_ignored_user(&current_username()) {
                     self.check_query(&query_desc);
                 }
             }
             #[cfg(not(any(feature = "pg14")))]
             CmdType::CMD_MERGE => {
-                if !self.is_ignored_user(current_username()) {
+                if !self.is_ignored_user(&current_username()) {
                     self.check_query(&query_desc);
                 }
             }
