@@ -13,15 +13,11 @@ pub fn comma_separated_list_contains(comma_separated_string: &CStr, value: &str)
         .any(|s| s.trim() == value)
 }
 
-pub fn string_from_ptr(ptr: *const c_char) -> Option<String> {
-    unsafe { CStr::from_ptr(ptr).to_str().ok().map(String::from) }
-}
-
 fn ptr_to_option_string(ptr: *const c_char) -> Option<String> {
     if ptr.is_null() {
         None
     } else {
-        string_from_ptr(ptr)
+        unsafe { CStr::from_ptr(ptr).to_str().ok().map(String::from) }
     }
 }
 
@@ -40,13 +36,13 @@ pub fn resolve_table_name(table_oid: Oid) -> Option<String> {
 pub fn current_db_name() -> String {
     unsafe {
         let db_oid = MyDatabaseId;
-        string_from_ptr(get_database_name(db_oid)).expect("Failed to get database name")
+        ptr_to_option_string(get_database_name(db_oid)).expect("Failed to get database name")
     }
 }
 
 pub fn current_username() -> String {
     let current_user = unsafe { GetUserNameFromId(GetUserId(), true) };
-    string_from_ptr(current_user).expect("Failed to get username")
+    ptr_to_option_string(current_user).expect("Failed to get username")
 }
 
 pub fn get_parent_table_oid(table_oid: Oid) -> Option<Oid> {

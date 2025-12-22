@@ -7,6 +7,7 @@ use crate::helpers::{
     comma_separated_list_contains, current_db_name, current_username, get_parent_table_oid,
     resolve_namespace_name, resolve_table_name, scanned_table,
 };
+use itertools::Itertools;
 use pgrx::pg_sys::{
     Append, CmdType, EXEC_FLAG_EXPLAIN_ONLY, ExecutorStart_hook_type, ExplainPrintPlan, List,
     NewExplainState,
@@ -32,10 +33,78 @@ fn is_ignored_query_for_comment(query_string: &str) -> bool {
     SKIP_COMMENT_RE.is_match(query_string)
 }
 
+fn get_query_string(query_desc: &PgBox<QueryDesc>) -> String {
+    unsafe { CStr::from_ptr(query_desc.sourceText) }
+        .to_str()
+        .expect("Invalid UTF-8 in query string")
+        .to_string()
+}
+
+fn is_ignored_user(current_user: &str) -> bool {
+    PG_NO_SEQSCAN_IGNORE_USERS
+        .get()
+        .map(|ignore_users_setting| {
+            comma_separated_list_contains(&ignore_users_setting, current_user)
+        })
+        .unwrap_or(false)
+}
+
+fn is_checked_database(database: &str) -> bool {
+    PG_NO_SEQSCAN_CHECK_DATABASES
+        .get()
+        .map(|check_databases_setting| {
+            check_databases_setting.is_empty()
+                || comma_separated_list_contains(&check_databases_setting, database)
+        })
+        .unwrap_or(true)
+}
+
+fn is_checked_schema(schema: &str) -> bool {
+    PG_NO_SEQSCAN_CHECK_SCHEMAS
+        .get()
+        .map(|check_schemas_setting| {
+            check_schemas_setting.is_empty()
+                || comma_separated_list_contains(&check_schemas_setting, schema)
+        })
+        .unwrap_or(true)
+}
+
+fn check_tables_options_is_set() -> bool {
+    PG_NO_SEQSCAN_CHECK_TABLES
+        .get()
+        .is_some_and(|tables| !tables.is_empty())
+}
+
+fn is_checked_table(table_name: &str) -> bool {
+    PG_NO_SEQSCAN_CHECK_TABLES
+        .get()
+        .map(|check_tables_setting| {
+            check_tables_setting.is_empty()
+                || comma_separated_list_contains(&check_tables_setting, table_name)
+        })
+        .unwrap_or(true)
+}
+
+fn is_ignored_table(table_name: &str) -> bool {
+    PG_NO_SEQSCAN_IGNORE_TABLES
+        .get()
+        .map(|ignore_tables_setting| {
+            comma_separated_list_contains(&ignore_tables_setting, table_name)
+        })
+        .unwrap_or(false)
+}
+
+fn is_sequence(relation_oid: Oid) -> bool {
+    unsafe {
+        let relation = PgRelation::open(relation_oid);
+        (*relation.rd_rel).relkind == (pg_sys::RELKIND_SEQUENCE as c_char)
+    }
+}
+
 impl NoSeqscanHooks {
     fn check_query(&mut self, query_desc: &PgBox<QueryDesc>) {
         // See PlannedStmt documentation: https://github.com/postgres/postgres/blob/master/src/include/nodes/plannodes.h#L46
-        let query_string = self.get_query_string(query_desc);
+        let query_string = get_query_string(query_desc);
 
         let plannedstmt_ref = unsafe { query_desc.plannedstmt.as_ref() };
         if let Some(ps) = plannedstmt_ref {
@@ -47,15 +116,15 @@ impl NoSeqscanHooks {
             }
 
             if !self.tables_in_seqscans.is_empty() && !is_ignored_query_for_comment(&query_string) {
-                unsafe {
+                let explain_output = unsafe {
                     let explain_state = NewExplainState();
                     (*explain_state).costs = false;
                     ExplainPrintPlan(explain_state, query_desc.as_ptr());
-                    let explain_output = std::ffi::CStr::from_ptr((*(*explain_state).str_).data)
+                    CStr::from_ptr((*(*explain_state).str_).data)
                         .to_str()
-                        .unwrap_or("Invalid UTF-8 in query plan");
-                    self.report_seqscan(&query_string, explain_output);
-                }
+                        .unwrap_or("Invalid UTF-8 in query plan")
+                };
+                self.report_seqscan(&query_string, explain_output);
             }
         }
     }
@@ -92,11 +161,6 @@ impl NoSeqscanHooks {
     }
 
     fn report_seqscan(&self, query_string: &str, explain_output: &str) {
-        let tables = self
-            .tables_in_seqscans
-            .iter()
-            .map(String::as_str)
-            .collect::<Vec<_>>();
         let message = format!(
             "A 'Sequential Scan' has been detected. Make sure the query is compatible with the existing indexes.
   - Tables involved: {}
@@ -105,7 +169,7 @@ impl NoSeqscanHooks {
 
   {}
 ",
-            tables.join("\n"),
+            self.tables_in_seqscans.iter().join("\n"),
             query_string,
             explain_output,
         );
@@ -114,67 +178,6 @@ impl NoSeqscanHooks {
             DetectionLevelEnum::Error => error!("{message}"),
             DetectionLevelEnum::Off => unreachable!(),
         }
-    }
-
-    fn get_query_string(&self, query_desc: &PgBox<QueryDesc>) -> String {
-        unsafe { CStr::from_ptr(query_desc.sourceText) }
-            .to_str()
-            .expect("Invalid UTF-8 in query string")
-            .to_string()
-    }
-
-    fn is_ignored_user(&self, current_user: &str) -> bool {
-        PG_NO_SEQSCAN_IGNORE_USERS
-            .get()
-            .map(|ignore_users_setting| {
-                comma_separated_list_contains(&ignore_users_setting, current_user)
-            })
-            .unwrap_or(false)
-    }
-
-    fn is_checked_database(&self, database: &str) -> bool {
-        PG_NO_SEQSCAN_CHECK_DATABASES
-            .get()
-            .map(|check_databases_setting| {
-                check_databases_setting.is_empty()
-                    || comma_separated_list_contains(&check_databases_setting, database)
-            })
-            .unwrap_or(true)
-    }
-
-    fn is_checked_schema(&self, schema: &str) -> bool {
-        PG_NO_SEQSCAN_CHECK_SCHEMAS
-            .get()
-            .map(|check_schemas_setting| {
-                check_schemas_setting.is_empty()
-                    || comma_separated_list_contains(&check_schemas_setting, schema)
-            })
-            .unwrap_or(true)
-    }
-
-    fn check_tables_options_is_set(&self) -> bool {
-        PG_NO_SEQSCAN_CHECK_TABLES
-            .get()
-            .is_some_and(|tables| !tables.is_empty())
-    }
-
-    fn is_checked_table(&self, table_name: &str) -> bool {
-        PG_NO_SEQSCAN_CHECK_TABLES
-            .get()
-            .map(|check_tables_setting| {
-                check_tables_setting.is_empty()
-                    || comma_separated_list_contains(&check_tables_setting, table_name)
-            })
-            .unwrap_or(true)
-    }
-
-    fn is_ignored_table(&self, table_name: &str) -> bool {
-        PG_NO_SEQSCAN_IGNORE_TABLES
-            .get()
-            .map(|ignore_tables_setting| {
-                comma_separated_list_contains(&ignore_tables_setting, table_name)
-            })
-            .unwrap_or(false)
     }
 
     fn check_current_node(&mut self, node: *mut Plan, rtables: *mut List) {
@@ -191,17 +194,17 @@ impl NoSeqscanHooks {
             let table_oid =
                 scanned_table(scanrelid, rtables).expect("Failed to get scanned table OID");
 
-            if self.is_sequence(table_oid) {
+            if is_sequence(table_oid) {
                 return;
             }
 
             let current_db_name = current_db_name();
-            if !self.is_checked_database(&current_db_name) {
+            if !is_checked_database(&current_db_name) {
                 return;
             }
 
             let schema = resolve_namespace_name(table_oid).expect("Failed to resolve schema name");
-            if !self.is_checked_schema(&schema) {
+            if !is_checked_schema(&schema) {
                 return;
             }
 
@@ -212,11 +215,11 @@ impl NoSeqscanHooks {
                 resolve_table_name(table_oid).expect("Failed to resolve table name")
             };
 
-            if !self.is_checked_table(&report_table_name) {
+            if !is_checked_table(&report_table_name) {
                 return;
             }
 
-            if !self.check_tables_options_is_set() && self.is_ignored_table(&report_table_name) {
+            if !check_tables_options_is_set() && is_ignored_table(&report_table_name) {
                 return;
             }
 
@@ -224,33 +227,22 @@ impl NoSeqscanHooks {
         }
     }
 
-    fn is_sequence(&self, relation_oid: Oid) -> bool {
-        unsafe {
-            let relation = PgRelation::open(relation_oid);
-            (*relation.rd_rel).relkind == (pg_sys::RELKIND_SEQUENCE as c_char)
-        }
-    }
-
     fn check_query_plan(&mut self, query_desc: PgBox<QueryDesc>) {
         // reset hook state
-        HOOK_OPTION.with(|c| {
-            *c.borrow_mut() = NoSeqscanHooks {
-                tables_in_seqscans: BTreeSet::new(),
-            };
-        });
+        self.tables_in_seqscans.clear();
 
         match query_desc.operation {
             CmdType::CMD_SELECT
             | CmdType::CMD_UPDATE
             | CmdType::CMD_INSERT
             | CmdType::CMD_DELETE => {
-                if !self.is_ignored_user(&current_username()) {
+                if !is_ignored_user(&current_username()) {
                     self.check_query(&query_desc);
                 }
             }
             #[cfg(not(feature = "pg14"))]
             CmdType::CMD_MERGE => {
-                if !self.is_ignored_user(&current_username()) {
+                if !is_ignored_user(&current_username()) {
                     self.check_query(&query_desc);
                 }
             }
