@@ -1,17 +1,20 @@
-use crate::guc::{DetectionLevelEnum,
-                 PG_NO_SEQSCAN_CHECK_DATABASES,PG_NO_SEQSCAN_IGNORE_TABLES,
-                 PG_NO_SEQSCAN_CHECK_SCHEMAS, PG_NO_SEQSCAN_CHECK_TABLES, PG_NO_SEQSCAN_IGNORE_USERS, PG_NO_SEQSCAN_LEVEL};
+use crate::guc::{
+    DetectionLevelEnum, PG_NO_SEQSCAN_CHECK_DATABASES, PG_NO_SEQSCAN_CHECK_SCHEMAS,
+    PG_NO_SEQSCAN_CHECK_TABLES, PG_NO_SEQSCAN_IGNORE_TABLES, PG_NO_SEQSCAN_IGNORE_USERS,
+    PG_NO_SEQSCAN_LEVEL,
+};
 use crate::helpers::{
     comma_separated_list_contains, current_db_name, current_username, get_parent_table_oid,
     resolve_namespace_name, resolve_table_name, scanned_table,
 };
 use pgrx::pg_sys::{
-    ExecutorStart_hook_type,
+    Append, CmdType, EXEC_FLAG_EXPLAIN_ONLY, ExecutorStart_hook_type, ExplainPrintPlan, List,
+    NewExplainState,
+    NodeTag::{T_Append, T_SeqScan, T_SubqueryScan},
+    Oid, Plan, QueryDesc, SeqScan, SubqueryScan,
     ffi::pg_guard_ffi_boundary,
-    Append, CmdType, ExplainPrintPlan, List, NewExplainState, NodeTag::{T_Append, T_SeqScan, T_SubqueryScan},
-    Oid, Plan, QueryDesc, SeqScan, SubqueryScan, EXEC_FLAG_EXPLAIN_ONLY,
 };
-use pgrx::{error, notice, pg_guard, pg_sys, PgBox, PgRelation};
+use pgrx::{PgBox, PgRelation, error, notice, pg_guard, pg_sys};
 use regex::{Error, Regex};
 use std::cell::RefCell;
 use std::collections::HashSet;
@@ -24,7 +27,8 @@ pub struct NoSeqscanHooks {
     pub tables_in_seqscans: HashSet<String>,
 }
 
-static SKIP_COMMENT_RE: LazyLock<Result<Regex, Error>> = LazyLock::new(|| Regex::new(r"/\*.*pg_no_seqscan_skip.*\*/"));
+static SKIP_COMMENT_RE: LazyLock<Result<Regex, Error>> =
+    LazyLock::new(|| Regex::new(r"/\*.*pg_no_seqscan_skip.*\*/"));
 fn is_ignored_query_for_comment(query_string: &str) -> bool {
     SKIP_COMMENT_RE
         .as_ref()
@@ -47,9 +51,7 @@ impl NoSeqscanHooks {
                 self.check_plan_list(ps.subplans, ps.rtable);
             }
 
-            if !self.tables_in_seqscans.is_empty()
-                && !is_ignored_query_for_comment(&query_string)
-            {
+            if !self.tables_in_seqscans.is_empty() && !is_ignored_query_for_comment(&query_string) {
                 unsafe {
                     let explain_state = NewExplainState();
                     (*explain_state).costs = false;
@@ -216,9 +218,7 @@ impl NoSeqscanHooks {
                 return;
             }
 
-            if !self.check_tables_options_is_set()
-                && self.is_ignored_table(&report_table_name)
-            {
+            if !self.check_tables_options_is_set() && self.is_ignored_table(&report_table_name) {
                 return;
             }
 
@@ -281,8 +281,7 @@ pub fn init_hooks() {
             // Skip if it's EXPLAIN (with or without ANALYZE)
             let is_explain_context = is_explain_only || has_any_instrumentation;
 
-            if PG_NO_SEQSCAN_LEVEL.get() != DetectionLevelEnum::Off && !is_explain_context
-            {
+            if PG_NO_SEQSCAN_LEVEL.get() != DetectionLevelEnum::Off && !is_explain_context {
                 if let Some(mut hook_option) = HOOK_OPTION.with(|c| c.borrow().clone()) {
                     hook_option.check_query_plan(PgBox::from_pg(query_desc));
                 }

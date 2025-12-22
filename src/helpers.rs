@@ -1,10 +1,9 @@
 use pgrx::pg_sys::{
-    get_database_name, get_namespace_name,
-    get_rel_name,
-    get_rel_namespace, rt_fetch, GetUserId, GetUserNameFromId, List, MyDatabaseId, Oid,
+    GetUserId, GetUserNameFromId, List, MyDatabaseId, Oid, get_database_name, get_namespace_name,
+    get_rel_name, get_rel_namespace, rt_fetch,
 };
 use pgrx::{PgRelation, Spi};
-use std::ffi::{c_char, CStr, CString};
+use std::ffi::{CStr, CString, c_char};
 
 pub fn comma_separated_list_contains(comma_separated_string: CString, value: &str) -> bool {
     comma_separated_string
