@@ -8,7 +8,7 @@ use std::ffi::{CStr, c_char};
 pub fn comma_separated_list_contains(comma_separated_string: &CStr, value: &str) -> bool {
     comma_separated_string
         .to_str()
-        .unwrap_or_default()
+        .expect("comma_separated_list_contains: Invalid UTF-8 sequence")
         .split(',')
         .any(|s| s.trim() == value)
 }

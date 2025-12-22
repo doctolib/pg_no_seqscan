@@ -19,8 +19,7 @@ use pgrx::{PgBox, PgRelation, error, notice, pg_guard, pg_sys};
 use regex::Regex;
 use std::cell::RefCell;
 use std::collections::BTreeSet;
-use std::ffi::CStr;
-use std::os::raw::c_char;
+use std::ffi::{CStr, c_char};
 use std::sync::LazyLock;
 
 pub struct NoSeqscanHooks {
