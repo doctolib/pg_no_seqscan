@@ -1,24 +1,36 @@
-use crate::guc;
-use crate::guc::DetectionLevelEnum;
+use crate::guc::{DetectionLevelEnum,
+                 PG_NO_SEQSCAN_CHECK_DATABASES,PG_NO_SEQSCAN_IGNORE_TABLES,
+                 PG_NO_SEQSCAN_CHECK_SCHEMAS, PG_NO_SEQSCAN_CHECK_TABLES, PG_NO_SEQSCAN_IGNORE_USERS, PG_NO_SEQSCAN_LEVEL};
 use crate::helpers::{
     comma_separated_list_contains, current_db_name, current_username, get_parent_table_oid,
     resolve_namespace_name, resolve_table_name, scanned_table,
 };
-use pgrx::pg_sys::NodeTag::T_SubqueryScan;
-use pgrx::pg_sys::ffi::pg_guard_ffi_boundary;
 use pgrx::pg_sys::{
-    Append, CmdType, EXEC_FLAG_EXPLAIN_ONLY, ExplainPrintPlan, List, NewExplainState,
-    NodeTag::T_Append, NodeTag::T_SeqScan, Oid, Plan, QueryDesc, SeqScan, SubqueryScan,
+    ExecutorStart_hook_type,
+    ffi::pg_guard_ffi_boundary,
+    Append, CmdType, ExplainPrintPlan, List, NewExplainState, NodeTag::{T_Append, T_SeqScan, T_SubqueryScan},
+    Oid, Plan, QueryDesc, SeqScan, SubqueryScan, EXEC_FLAG_EXPLAIN_ONLY,
 };
-use pgrx::{PgBox, PgRelation, error, notice, pg_guard, pg_sys};
-use regex::Regex;
+use pgrx::{error, notice, pg_guard, pg_sys, PgBox, PgRelation};
+use regex::{Error, Regex};
+use std::cell::RefCell;
 use std::collections::HashSet;
 use std::ffi::CStr;
 use std::os::raw::c_char;
+use std::sync::LazyLock;
 
 #[derive(Clone)]
 pub struct NoSeqscanHooks {
     pub tables_in_seqscans: HashSet<String>,
+}
+
+static SKIP_COMMENT_RE: LazyLock<Result<Regex, Error>> = LazyLock::new(|| Regex::new(r"/\*.*pg_no_seqscan_skip.*\*/"));
+fn is_ignored_query_for_comment(query_string: &str) -> bool {
+    SKIP_COMMENT_RE
+        .as_ref()
+        .ok()
+        .map(|re| re.is_match(query_string))
+        .unwrap_or(false)
 }
 
 impl NoSeqscanHooks {
@@ -36,7 +48,7 @@ impl NoSeqscanHooks {
             }
 
             if !self.tables_in_seqscans.is_empty()
-                && !self.is_ignored_query_for_comment(&query_string)
+                && !is_ignored_query_for_comment(&query_string)
             {
                 unsafe {
                     let explain_state = NewExplainState();
@@ -97,7 +109,7 @@ impl NoSeqscanHooks {
             query_string,
             explain_output,
         );
-        match guc::PG_NO_SEQSCAN_LEVEL.get() {
+        match PG_NO_SEQSCAN_LEVEL.get() {
             DetectionLevelEnum::Warn => notice!("{message}"),
             DetectionLevelEnum::Error => error!("{message}"),
             DetectionLevelEnum::Off => unreachable!(),
@@ -111,16 +123,8 @@ impl NoSeqscanHooks {
             .to_string()
     }
 
-    fn is_ignored_query_for_comment(&mut self, query_string: &str) -> bool {
-        let re = Regex::new(r"/\*.*pg_no_seqscan_skip.*\*/");
-        match re {
-            Ok(re) => re.is_match(query_string),
-            _ => false,
-        }
-    }
-
-    fn is_ignored_user(&self, current_user: String) -> bool {
-        guc::PG_NO_SEQSCAN_IGNORE_USERS
+    fn is_ignored_user(&self, current_user: &str) -> bool {
+        PG_NO_SEQSCAN_IGNORE_USERS
             .get()
             .map(|ignore_users_setting| {
                 comma_separated_list_contains(ignore_users_setting, current_user)
@@ -128,8 +132,8 @@ impl NoSeqscanHooks {
             .unwrap_or(false)
     }
 
-    fn is_checked_database(&self, database: String) -> bool {
-        guc::PG_NO_SEQSCAN_CHECK_DATABASES
+    fn is_checked_database(&self, database: &str) -> bool {
+        PG_NO_SEQSCAN_CHECK_DATABASES
             .get()
             .map(|check_databases_setting| {
                 check_databases_setting.is_empty()
@@ -138,8 +142,8 @@ impl NoSeqscanHooks {
             .unwrap_or(true)
     }
 
-    fn is_checked_schema(&self, schema: String) -> bool {
-        guc::PG_NO_SEQSCAN_CHECK_SCHEMAS
+    fn is_checked_schema(&self, schema: &str) -> bool {
+        PG_NO_SEQSCAN_CHECK_SCHEMAS
             .get()
             .map(|check_schemas_setting| {
                 check_schemas_setting.is_empty()
@@ -149,13 +153,13 @@ impl NoSeqscanHooks {
     }
 
     fn check_tables_options_is_set(&self) -> bool {
-        guc::PG_NO_SEQSCAN_CHECK_TABLES
+        PG_NO_SEQSCAN_CHECK_TABLES
             .get()
             .is_some_and(|tables| !tables.is_empty())
     }
 
-    fn is_checked_table(&self, table_name: String) -> bool {
-        guc::PG_NO_SEQSCAN_CHECK_TABLES
+    fn is_checked_table(&self, table_name: &str) -> bool {
+        PG_NO_SEQSCAN_CHECK_TABLES
             .get()
             .map(|check_tables_setting| {
                 check_tables_setting.is_empty()
@@ -164,8 +168,8 @@ impl NoSeqscanHooks {
             .unwrap_or(true)
     }
 
-    fn is_ignored_table(&self, table_name: String) -> bool {
-        guc::PG_NO_SEQSCAN_IGNORE_TABLES
+    fn is_ignored_table(&self, table_name: &str) -> bool {
+        PG_NO_SEQSCAN_IGNORE_TABLES
             .get()
             .map(|ignore_tables_setting| {
                 comma_separated_list_contains(ignore_tables_setting, table_name)
@@ -192,12 +196,12 @@ impl NoSeqscanHooks {
             }
 
             let current_db_name = current_db_name();
-            if !self.is_checked_database(current_db_name) {
+            if !self.is_checked_database(&current_db_name) {
                 return;
             }
 
             let schema = resolve_namespace_name(table_oid).expect("Failed to resolve schema name");
-            if !self.is_checked_schema(schema) {
+            if !self.is_checked_schema(&schema) {
                 return;
             }
 
@@ -208,12 +212,12 @@ impl NoSeqscanHooks {
                 resolve_table_name(table_oid).expect("Failed to resolve table name")
             };
 
-            if !self.is_checked_table(report_table_name.clone()) {
+            if !self.is_checked_table(&report_table_name) {
                 return;
             }
 
             if !self.check_tables_options_is_set()
-                && self.is_ignored_table(report_table_name.clone())
+                && self.is_ignored_table(&report_table_name)
             {
                 return;
             }
@@ -229,27 +233,26 @@ impl NoSeqscanHooks {
         }
     }
 
-    #[allow(static_mut_refs)]
     fn check_query_plan(&mut self, query_desc: PgBox<QueryDesc>) {
         // reset hook state
-        unsafe {
-            HOOK_OPTION = Some(NoSeqscanHooks {
+        HOOK_OPTION.with(|c| {
+            *c.borrow_mut() = Some(NoSeqscanHooks {
                 tables_in_seqscans: HashSet::new(),
             });
-        }
+        });
 
         match query_desc.operation {
             CmdType::CMD_SELECT
             | CmdType::CMD_UPDATE
             | CmdType::CMD_INSERT
             | CmdType::CMD_DELETE => {
-                if !self.is_ignored_user(current_username()) {
+                if !self.is_ignored_user(&current_username()) {
                     self.check_query(&query_desc);
                 }
             }
             #[cfg(not(any(feature = "pg14")))]
             CmdType::CMD_MERGE => {
-                if !self.is_ignored_user(current_username()) {
+                if !self.is_ignored_user(&current_username()) {
                     self.check_query(&query_desc);
                 }
             }
@@ -258,43 +261,46 @@ impl NoSeqscanHooks {
     }
 }
 
-pub static mut HOOK_OPTION: Option<NoSeqscanHooks> = None;
+thread_local! {
+    static HOOK_OPTION: RefCell<Option<NoSeqscanHooks>> = const{ RefCell::new(None) };
+    static PREV_EXECUTOR_START: RefCell<ExecutorStart_hook_type> = const{ RefCell::new(None) };
+}
 
-#[allow(deprecated, static_mut_refs)]
 pub fn init_hooks() {
-    unsafe {
-        HOOK_OPTION = Some(NoSeqscanHooks {
-            tables_in_seqscans: HashSet::new(),
-        });
+    #[pg_guard]
+    extern "C-unwind" fn executor_start_hook(
+        query_desc: *mut QueryDesc,
+        eflags: ::core::ffi::c_int,
+    ) {
+        unsafe {
+            pg_sys::standard_ExecutorStart(query_desc, eflags);
+            let query_desc_box = PgBox::from_pg(query_desc);
+            let is_explain_only = (eflags & EXEC_FLAG_EXPLAIN_ONLY as i32) != 0;
+            // In postgres code if es->analyze then at least INSTRUMENT_ROWS is set
+            let has_any_instrumentation = query_desc_box.instrument_options != 0;
+            // Skip if it's EXPLAIN (with or without ANALYZE)
+            let is_explain_context = is_explain_only || has_any_instrumentation;
 
-        static mut PREV_EXECUTOR_START: pg_sys::ExecutorStart_hook_type = None;
-        PREV_EXECUTOR_START = pg_sys::ExecutorStart_hook;
-        pg_sys::ExecutorStart_hook = Some(executor_start_hook);
-
-        #[pg_guard]
-        extern "C-unwind" fn executor_start_hook(
-            query_desc: *mut QueryDesc,
-            eflags: ::core::ffi::c_int,
-        ) {
-            unsafe {
-                pg_sys::standard_ExecutorStart(query_desc, eflags);
-                let query_desc_box = PgBox::from_pg(query_desc);
-                let is_explain_only = (eflags & EXEC_FLAG_EXPLAIN_ONLY as i32) != 0;
-                // In postgres code if es->analyze then at least INSTRUMENT_ROWS is set
-                let has_any_instrumentation = query_desc_box.instrument_options != 0;
-                // Skip if it's EXPLAIN (with or without ANALYZE)
-                let is_explain_context = is_explain_only || has_any_instrumentation;
-
-                if guc::PG_NO_SEQSCAN_LEVEL.get() != DetectionLevelEnum::Off && !is_explain_context
-                {
-                    if let Some(hook_option) = HOOK_OPTION.as_mut() {
-                        hook_option.check_query_plan(PgBox::from_pg(query_desc));
-                    }
+            if PG_NO_SEQSCAN_LEVEL.get() != DetectionLevelEnum::Off && !is_explain_context
+            {
+                if let Some(mut hook_option) = HOOK_OPTION.with(|c| c.borrow().clone()) {
+                    hook_option.check_query_plan(PgBox::from_pg(query_desc));
                 }
-                if let Some(prev_hook) = PREV_EXECUTOR_START {
-                    pg_guard_ffi_boundary(|| prev_hook(query_desc, eflags));
-                }
+            }
+            if let Some(prev_hook) = PREV_EXECUTOR_START.with(|c| *c.borrow()) {
+                pg_guard_ffi_boundary(|| prev_hook(query_desc, eflags));
             }
         }
     }
+
+    HOOK_OPTION.with(|c| {
+        *c.borrow_mut() = Some(NoSeqscanHooks {
+            tables_in_seqscans: HashSet::new(),
+        });
+    });
+
+    PREV_EXECUTOR_START.with(|c| unsafe {
+        pg_sys::ExecutorStart_hook = Some(executor_start_hook);
+        *c.borrow_mut() = pg_sys::ExecutorStart_hook;
+    });
 }

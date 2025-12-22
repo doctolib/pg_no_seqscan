@@ -1,18 +1,17 @@
-use pgrx::pg_sys;
-use pgrx::pg_sys::{List, Oid, get_namespace_name, get_rel_name, get_rel_namespace, rt_fetch};
+use pgrx::pg_sys::{
+    get_database_name, get_namespace_name,
+    get_rel_name,
+    get_rel_namespace, rt_fetch, GetUserId, GetUserNameFromId, List, MyDatabaseId, Oid,
+};
 use pgrx::{PgRelation, Spi};
-use std::ffi::{CStr, CString, c_char};
+use std::ffi::{c_char, CStr, CString};
 
-pub fn extract_comma_separated_setting(comma_separated_string: CString) -> Vec<String> {
+pub fn comma_separated_list_contains(comma_separated_string: CString, value: &str) -> bool {
     comma_separated_string
         .to_str()
         .unwrap_or_default()
         .split(',')
-        .map(|s| s.trim().to_string())
-        .collect()
-}
-pub fn comma_separated_list_contains(comma_separated_string: CString, value: String) -> bool {
-    extract_comma_separated_setting(comma_separated_string).contains(&value)
+        .any(|s| s.trim() == value)
 }
 
 pub fn string_from_ptr(ptr: *const c_char) -> Option<String> {
@@ -46,13 +45,13 @@ pub fn resolve_table_name(table_oid: Oid) -> Option<String> {
 
 pub fn current_db_name() -> String {
     unsafe {
-        let db_oid = pg_sys::MyDatabaseId;
-        string_from_ptr(pg_sys::get_database_name(db_oid)).expect("Failed to get database name")
+        let db_oid = MyDatabaseId;
+        string_from_ptr(get_database_name(db_oid)).expect("Failed to get database name")
     }
 }
 
 pub fn current_username() -> String {
-    let current_user = unsafe { pg_sys::GetUserNameFromId(pg_sys::GetUserId(), true) };
+    let current_user = unsafe { GetUserNameFromId(GetUserId(), true) };
     string_from_ptr(current_user).expect("Failed to get username")
 }
 

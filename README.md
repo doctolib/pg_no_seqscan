@@ -28,7 +28,7 @@ that could cause dramatic performance degradation in production.
 ### Build the extension
 
 For now, you need to build the extension locally:
-`cargo build -r`
+`cargo build --release`
 That will generate the following files:
 
 - control file: pg_no_seqscan.control
