@@ -15,7 +15,7 @@ use pgrx::pg_sys::{
     ffi::pg_guard_ffi_boundary,
 };
 use pgrx::{PgBox, PgRelation, error, notice, pg_guard, pg_sys};
-use regex::{Error, Regex};
+use regex::Regex;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::ffi::CStr;
@@ -27,14 +27,10 @@ pub struct NoSeqscanHooks {
     pub tables_in_seqscans: HashSet<String>,
 }
 
-static SKIP_COMMENT_RE: LazyLock<Result<Regex, Error>> =
-    LazyLock::new(|| Regex::new(r"/\*.*pg_no_seqscan_skip.*\*/"));
+static SKIP_COMMENT_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"/\*.*pg_no_seqscan_skip.*\*/").expect("Failed to compile regex"));
 fn is_ignored_query_for_comment(query_string: &str) -> bool {
-    SKIP_COMMENT_RE
-        .as_ref()
-        .ok()
-        .map(|re| re.is_match(query_string))
-        .unwrap_or(false)
+    SKIP_COMMENT_RE.is_match(query_string)
 }
 
 impl NoSeqscanHooks {
@@ -129,7 +125,7 @@ impl NoSeqscanHooks {
         PG_NO_SEQSCAN_IGNORE_USERS
             .get()
             .map(|ignore_users_setting| {
-                comma_separated_list_contains(ignore_users_setting, current_user)
+                comma_separated_list_contains(&ignore_users_setting, current_user)
             })
             .unwrap_or(false)
     }
@@ -139,7 +135,7 @@ impl NoSeqscanHooks {
             .get()
             .map(|check_databases_setting| {
                 check_databases_setting.is_empty()
-                    || comma_separated_list_contains(check_databases_setting, database)
+                    || comma_separated_list_contains(&check_databases_setting, database)
             })
             .unwrap_or(true)
     }
@@ -149,7 +145,7 @@ impl NoSeqscanHooks {
             .get()
             .map(|check_schemas_setting| {
                 check_schemas_setting.is_empty()
-                    || comma_separated_list_contains(check_schemas_setting, schema)
+                    || comma_separated_list_contains(&check_schemas_setting, schema)
             })
             .unwrap_or(true)
     }
@@ -165,7 +161,7 @@ impl NoSeqscanHooks {
             .get()
             .map(|check_tables_setting| {
                 check_tables_setting.is_empty()
-                    || comma_separated_list_contains(check_tables_setting, table_name)
+                    || comma_separated_list_contains(&check_tables_setting, table_name)
             })
             .unwrap_or(true)
     }
@@ -174,7 +170,7 @@ impl NoSeqscanHooks {
         PG_NO_SEQSCAN_IGNORE_TABLES
             .get()
             .map(|ignore_tables_setting| {
-                comma_separated_list_contains(ignore_tables_setting, table_name)
+                comma_separated_list_contains(&ignore_tables_setting, table_name)
             })
             .unwrap_or(false)
     }
@@ -185,7 +181,7 @@ impl NoSeqscanHooks {
                 return;
             }
 
-            let seq_scan: &mut SeqScan = &mut *(node as *mut SeqScan);
+            let seq_scan: &SeqScan = &*(node as *const SeqScan);
             #[cfg(not(feature = "pg14"))]
             let table_oid = scanned_table(seq_scan.scan.scanrelid, rtables)
                 .expect("Failed to get scanned table OID");
@@ -299,7 +295,7 @@ pub fn init_hooks() {
     });
 
     PREV_EXECUTOR_START.with(|c| unsafe {
-        pg_sys::ExecutorStart_hook = Some(executor_start_hook);
         *c.borrow_mut() = pg_sys::ExecutorStart_hook;
+        pg_sys::ExecutorStart_hook = Some(executor_start_hook);
     });
 }

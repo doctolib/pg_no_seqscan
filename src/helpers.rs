@@ -3,9 +3,9 @@ use pgrx::pg_sys::{
     get_rel_name, get_rel_namespace, rt_fetch,
 };
 use pgrx::{PgRelation, Spi};
-use std::ffi::{CStr, CString, c_char};
+use std::ffi::{CStr, c_char};
 
-pub fn comma_separated_list_contains(comma_separated_string: CString, value: &str) -> bool {
+pub fn comma_separated_list_contains(comma_separated_string: &CStr, value: &str) -> bool {
     comma_separated_string
         .to_str()
         .unwrap_or_default()
@@ -14,10 +14,7 @@ pub fn comma_separated_list_contains(comma_separated_string: CString, value: &st
 }
 
 pub fn string_from_ptr(ptr: *const c_char) -> Option<String> {
-    match unsafe { CStr::from_ptr(ptr).to_str() } {
-        Ok(str_value) => Some(str_value.to_string()),
-        Err(_) => None,
-    }
+    unsafe { CStr::from_ptr(ptr).to_str().ok().map(String::from) }
 }
 
 pub fn scanned_table(scanrelid: u32, rtables: *mut List) -> Option<Oid> {
