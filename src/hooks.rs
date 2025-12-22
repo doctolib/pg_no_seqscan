@@ -17,14 +17,13 @@ use pgrx::pg_sys::{
 use pgrx::{PgBox, PgRelation, error, notice, pg_guard, pg_sys};
 use regex::Regex;
 use std::cell::RefCell;
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::sync::LazyLock;
 
-#[derive(Clone)]
 pub struct NoSeqscanHooks {
-    pub tables_in_seqscans: HashSet<String>,
+    pub tables_in_seqscans: BTreeSet<String>,
 }
 
 static SKIP_COMMENT_RE: LazyLock<Regex> =
@@ -68,9 +67,9 @@ impl NoSeqscanHooks {
             self.check_current_node(plan, rtables);
 
             match node.type_ {
-                T_Append => self.check_plan_list((*(plan as *mut Append)).appendplans, rtables),
+                T_Append => self.check_plan_list((*plan.cast::<Append>()).appendplans, rtables),
                 T_SubqueryScan => {
-                    if let Some(plan) = (plan as *mut SubqueryScan).as_ref() {
+                    if let Some(plan) = plan.cast::<SubqueryScan>().as_ref() {
                         self.check_plan_recursively(plan.subplan, rtables)
                     }
                 }
@@ -86,15 +85,18 @@ impl NoSeqscanHooks {
         unsafe {
             for i in 0..(*subplans).length {
                 if let Some(cell) = pg_sys::list_nth_cell(subplans, i).as_ref() {
-                    self.check_plan_recursively(cell.ptr_value as *mut Plan, rtables);
+                    self.check_plan_recursively(cell.ptr_value.cast::<Plan>(), rtables);
                 }
             }
         }
     }
 
     fn report_seqscan(&self, query_string: &str, explain_output: &str) {
-        let mut tables: Vec<_> = self.tables_in_seqscans.iter().cloned().collect();
-        tables.sort();
+        let tables = self
+            .tables_in_seqscans
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>();
         let message = format!(
             "A 'Sequential Scan' has been detected. Make sure the query is compatible with the existing indexes.
   - Tables involved: {}
@@ -181,13 +183,13 @@ impl NoSeqscanHooks {
                 return;
             }
 
-            let seq_scan: &SeqScan = &*(node as *const SeqScan);
+            let seq_scan: &SeqScan = &*(node.cast::<SeqScan>());
             #[cfg(not(feature = "pg14"))]
-            let table_oid = scanned_table(seq_scan.scan.scanrelid, rtables)
-                .expect("Failed to get scanned table OID");
+            let scanrelid = seq_scan.scan.scanrelid;
             #[cfg(feature = "pg14")]
-            let table_oid = scanned_table(seq_scan.scanrelid, rtables)
-                .expect("Failed to get scanned table OID");
+            let scanrelid = seq_scan.scanrelid;
+            let table_oid =
+                scanned_table(scanrelid, rtables).expect("Failed to get scanned table OID");
 
             if self.is_sequence(table_oid) {
                 return;
@@ -218,7 +220,7 @@ impl NoSeqscanHooks {
                 return;
             }
 
-            self.tables_in_seqscans.insert(report_table_name.clone());
+            self.tables_in_seqscans.insert(report_table_name);
         }
     }
 
@@ -232,9 +234,9 @@ impl NoSeqscanHooks {
     fn check_query_plan(&mut self, query_desc: PgBox<QueryDesc>) {
         // reset hook state
         HOOK_OPTION.with(|c| {
-            *c.borrow_mut() = Some(NoSeqscanHooks {
-                tables_in_seqscans: HashSet::new(),
-            });
+            *c.borrow_mut() = NoSeqscanHooks {
+                tables_in_seqscans: BTreeSet::new(),
+            };
         });
 
         match query_desc.operation {
@@ -246,7 +248,7 @@ impl NoSeqscanHooks {
                     self.check_query(&query_desc);
                 }
             }
-            #[cfg(not(any(feature = "pg14")))]
+            #[cfg(not(feature = "pg14"))]
             CmdType::CMD_MERGE => {
                 if !self.is_ignored_user(&current_username()) {
                     self.check_query(&query_desc);
@@ -258,8 +260,10 @@ impl NoSeqscanHooks {
 }
 
 thread_local! {
-    static HOOK_OPTION: RefCell<Option<NoSeqscanHooks>> = const{ RefCell::new(None) };
-    static PREV_EXECUTOR_START: RefCell<ExecutorStart_hook_type> = const{ RefCell::new(None) };
+    static HOOK_OPTION: RefCell<NoSeqscanHooks> = RefCell::new(NoSeqscanHooks {
+        tables_in_seqscans: BTreeSet::new(),
+    });
+    static PREV_EXECUTOR_START: RefCell<ExecutorStart_hook_type> = const { RefCell::new(None) };
 }
 
 pub fn init_hooks() {
@@ -278,21 +282,16 @@ pub fn init_hooks() {
             let is_explain_context = is_explain_only || has_any_instrumentation;
 
             if PG_NO_SEQSCAN_LEVEL.get() != DetectionLevelEnum::Off && !is_explain_context {
-                if let Some(mut hook_option) = HOOK_OPTION.with(|c| c.borrow().clone()) {
+                HOOK_OPTION.with(|c| {
+                    let mut hook_option = c.borrow_mut();
                     hook_option.check_query_plan(PgBox::from_pg(query_desc));
-                }
+                });
             }
             if let Some(prev_hook) = PREV_EXECUTOR_START.with(|c| *c.borrow()) {
                 pg_guard_ffi_boundary(|| prev_hook(query_desc, eflags));
             }
         }
     }
-
-    HOOK_OPTION.with(|c| {
-        *c.borrow_mut() = Some(NoSeqscanHooks {
-            tables_in_seqscans: HashSet::new(),
-        });
-    });
 
     PREV_EXECUTOR_START.with(|c| unsafe {
         *c.borrow_mut() = pg_sys::ExecutorStart_hook;

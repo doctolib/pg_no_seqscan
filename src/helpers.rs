@@ -17,26 +17,24 @@ pub fn string_from_ptr(ptr: *const c_char) -> Option<String> {
     unsafe { CStr::from_ptr(ptr).to_str().ok().map(String::from) }
 }
 
+fn ptr_to_option_string(ptr: *const c_char) -> Option<String> {
+    if ptr.is_null() {
+        None
+    } else {
+        string_from_ptr(ptr)
+    }
+}
+
 pub fn scanned_table(scanrelid: u32, rtables: *mut List) -> Option<Oid> {
     unsafe { rt_fetch(scanrelid, rtables).as_ref().map(|rte| rte.relid) }
 }
 
 pub fn resolve_namespace_name(oid: Oid) -> Option<String> {
-    let namespace_name = unsafe { get_namespace_name(get_rel_namespace(oid)) };
-    if namespace_name.is_null() {
-        None
-    } else {
-        string_from_ptr(namespace_name)
-    }
+    ptr_to_option_string(unsafe { get_namespace_name(get_rel_namespace(oid)) })
 }
 
 pub fn resolve_table_name(table_oid: Oid) -> Option<String> {
-    let relname_ptr = unsafe { get_rel_name(table_oid) };
-    if relname_ptr.is_null() {
-        return None;
-    }
-
-    string_from_ptr(relname_ptr)
+    ptr_to_option_string(unsafe { get_rel_name(table_oid) })
 }
 
 pub fn current_db_name() -> String {
