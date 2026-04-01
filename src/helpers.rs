@@ -11,7 +11,10 @@ pub fn extract_comma_separated_setting(comma_separated_string: CString) -> Vec<S
         .map(|s| s.trim().to_string())
         .collect()
 }
-pub fn comma_separated_list_contains(comma_separated_string: CString, value: String) -> bool {
+pub fn comma_separated_list_contains(comma_separated_string: CString, value: &String) -> bool {
+    if comma_separated_string.is_empty() {
+        return false;
+    }
     extract_comma_separated_setting(comma_separated_string).contains(&value)
 }
 
