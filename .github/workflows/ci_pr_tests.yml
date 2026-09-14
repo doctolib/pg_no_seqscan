@@ -18,7 +18,7 @@ jobs:
     steps:
       - name: Start - PG ${{ matrix.pg }}
         run: pg-start ${{ matrix.pg }}
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - run: pgrx-build-test
   clippy:
     name: 📎 Clippy - PG 15
@@ -26,7 +26,7 @@ jobs:
     container: pgxn/pgxn-tools
     steps:
       - run: pg-start 15
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - run: pgrx-build-test
       - run: cargo clippy --color always --features pg15
   format:
@@ -34,6 +34,6 @@ jobs:
     runs-on: ubuntu-latest
     container: pgxn/pgxn-tools
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: 📖 Check format
         run: cargo --color always fmt --all -- --check
