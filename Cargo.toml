@@ -20,11 +20,11 @@ pg18 = ["pgrx/pg18", "pgrx-tests/pg18" ]
 pg_test = []
 
 [dependencies]
-pgrx = "0.16.1"
+pgrx = "0.20.0"
 regex = "1.11.1"
 
 [dev-dependencies]
-pgrx-tests = "0.16.1"
+pgrx-tests = "0.20.0"
 
 [profile.dev]
 panic = "unwind"
