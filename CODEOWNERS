@@ -1,1 +1,3 @@
 * @doctolib/pg-no-seqscan
+Cargo.toml @doctolib/pg-no-seqscan @doctolib/deployment
+Cargo.lock @doctolib/pg-no-seqscan @doctolib/deployment

@@ -1,0 +1,4 @@
+[toolchain]
+channel = "1.100"
+# pgxn/pgxn-tools, which CI runs in, carries rustup's minimal profile
+components = ["rustfmt", "clippy"]
