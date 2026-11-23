@@ -5,4 +5,3 @@
 /tests/pg_regress/regression.*
 *.iml
 **/*.rs.bk
-Cargo.lock
